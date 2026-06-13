@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Notes</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Upload Notes</h1>
+        <div class="auth-form">
+            <select id="semester">
+                <option value="3">Semester 3</option>
+                <option value="4">Semester 4</option>
+            </select>
+            <select id="subject">
+                <option value="de">Digital Electronics</option>
+                <option value="delab">DE Lab</option>
+                <option value="dsa">DSA</option>
+                <option value="dsalab">DSA Lab</option>
+                <option value="economics">Economics</option>
+                <option value="maths">Mathematics</option>
+                <option value="oop">OOP</option>
+                <option value="toc">TOC</option>
+                <option value="coa">COA</option>
+                <option value="dbms">DBMS</option>
+                <option value="dbmslab">DBMS Lab</option>
+                <option value="ethics">Ethics</option>
+                <option value="os">Operating System</option>
+                <option value="oslab">OS Lab</option>
+                <option value="se">Software Engineering</option>
+            </select>
+            <input type="file" id="file" accept=".pdf" />
+            <button onclick="uploadFile()">Upload</button>
+            <p id="status-msg"></p>
+            <p><a href="login.html">Logout</a></p>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../supabase-config.js"></script>
+    <script>
+        // Check if logged in
+        supabaseClient.auth.getSession().then(({ data }) => {
+            if (!data.session) {
+                window.location.href = "login.html";
+            }
+        });
+
+        async function uploadFile() {
+            const semester = document.getElementById("semester").value;
+            const subject = document.getElementById("subject").value;
+            const file = document.getElementById("file").files[0];
+            const status = document.getElementById("status-msg");
+
+            if (!file) {
+                status.textContent = "Please select a file!";
+                status.style.color = "red";
+                return;
+            }
+
+            const { data: sessionData } = await supabaseClient.auth.getSession();
+            const user = sessionData.session.user;
+
+            const filePath = `semester${semester}/${subject}/${file.name}`;
+
+            const { error: uploadError } = await supabaseClient.storage
+                .from("pending")
+                .upload(filePath, file, { upsert: true });
+
+            if (uploadError) {
+                status.textContent = "Upload failed: " + uploadError.message;
+                status.style.color = "red";
+                return;
+            }
+
+            // Save to database
+            const { error: dbError } = await supabaseClient
+                .from("pending_files")
+                .insert({
+                    file_name: file.name,
+                    semester: semester,
+                    subject: subject,
+                    uploaded_by: user.email,
+                    storage_path: filePath
+                });
+
+            if (dbError) {
+                status.textContent = "Error saving file info: " + dbError.message;
+                status.style.color = "red";
+                return;
+            }
+
+            status.textContent = "Uploaded successfully! Waiting for admin approval.";
+            status.style.color = "green";
+        }
+    </script>
+</body>
+</html>

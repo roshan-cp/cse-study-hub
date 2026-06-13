@@ -30,14 +30,10 @@ if (title && semester && subject) {
 
 async function loadFiles() {
     const folderPath = `semester${semester}/${subject}`;
-    console.log("Looking in:", folderPath);
 
     const { data, error } = await supabaseClient.storage
         .from("notes")
         .list(folderPath);
-
-    console.log("data:", JSON.stringify(data));
-    console.log("error:", JSON.stringify(error));
 
     if (error) {
         notesList.innerHTML = `<p class="empty-message">Error loading files.</p>`;
