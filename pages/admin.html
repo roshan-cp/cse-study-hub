@@ -9,8 +9,8 @@
 <body>
     <div class="container">
         <h1>Admin Panel</h1>
-        <div id="files-list"><p>Loading pending files...</p></div>
-        <p><a href="login.html">Logout</a></p>
+        <div id="links-list"><p>Loading pending links...</p></div>
+        <p><a href="login.html" onclick="logout()">Logout</a></p>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../supabase-config.js"></script>
@@ -22,100 +22,70 @@
                 window.location.href = "login.html";
                 return;
             }
-            loadPendingFiles();
+            loadPendingLinks();
         });
 
-        async function loadPendingFiles() {
+        async function loadPendingLinks() {
             const { data, error } = await supabaseClient
-                .from("pending_files")
+                .from("links")
                 .select("*")
+                .eq("status", "pending")
                 .order("created_at", { ascending: false });
 
-            const list = document.getElementById("files-list");
+            const list = document.getElementById("links-list");
 
             if (error || !data || data.length === 0) {
-                list.innerHTML = "<p>No pending files.</p>";
+                list.innerHTML = "<p>No pending links.</p>";
                 return;
             }
 
             list.innerHTML = "";
-            data.forEach(file => {
+            data.forEach(link => {
                 const div = document.createElement("div");
                 div.className = "note-item";
                 div.innerHTML = `
-                    <p><b>${file.file_name}</b></p>
-                    <p>Semester ${file.semester} → ${file.subject}</p>
-                    <p>Uploaded by: ${file.uploaded_by}</p>
-                    <button onclick="approve('${file.id}', '${file.storage_path}', '${file.file_name}', '${file.semester}', '${file.subject}')">✅ Accept</button>
-                    <button onclick="reject('${file.id}', '${file.storage_path}')">❌ Reject</button>
+                    <p><b>${link.module_name}</b></p>
+                    <p>Semester ${link.semester} → ${link.subject} → ${link.category}</p>
+                    <p>Uploaded by: ${link.uploaded_by}</p>
+                    <a href="${link.drive_link}" target="_blank">👁 Preview</a>
+                    <button onclick="approve('${link.id}')">✅ Accept</button>
+                    <button onclick="reject('${link.id}')">❌ Reject</button>
                     <hr/>
                 `;
                 list.appendChild(div);
             });
         }
 
-      async function approve(id, storagePath, fileName, semester, subject) {
-    // Download from pending
-    const { data: fileData, error: downloadError } = await supabaseClient.storage
-        .from("pending")
-        .download(storagePath);
+        async function approve(id) {
+            const { error } = await supabaseClient
+                .from("links")
+                .update({ status: "approved" })
+                .eq("id", id);
 
-    console.log("Downloading:", storagePath);
-    console.log("Download error:", downloadError);
-
-    if (downloadError) {
-        // Try with full path
-        const fullPath = `semester${semester}/${subject}/${fileName}`;
-        console.log("Trying full path:", fullPath);
-        
-        const { data: fileData2, error: downloadError2 } = await supabaseClient.storage
-            .from("pending")
-            .download(fullPath);
-
-        if (downloadError2) {
-            alert("Error downloading file: " + downloadError2.message);
-            return;
+            if (error) {
+                alert("Error: " + error.message);
+                return;
+            }
+            alert("Link approved!");
+            loadPendingLinks();
         }
 
-        // Upload to notes
-        const notesPath = `semester${semester}/${subject}/${fileName}`;
-        const { error: uploadError } = await supabaseClient.storage
-            .from("notes")
-            .upload(notesPath, fileData2, { upsert: true });
+        async function reject(id) {
+            const { error } = await supabaseClient
+                .from("links")
+                .delete()
+                .eq("id", id);
 
-        if (uploadError) {
-            alert("Error uploading to notes: " + uploadError.message);
-            return;
+            if (error) {
+                alert("Error: " + error.message);
+                return;
+            }
+            alert("Link rejected!");
+            loadPendingLinks();
         }
 
-        await supabaseClient.storage.from("pending").remove([fullPath]);
-        await supabaseClient.from("pending_files").delete().eq("id", id);
-        alert("File approved!");
-        loadPendingFiles();
-        return;
-    }
-
-    // Upload to notes
-    const notesPath = `semester${semester}/${subject}/${fileName}`;
-    const { error: uploadError } = await supabaseClient.storage
-        .from("notes")
-        .upload(notesPath, fileData, { upsert: true });
-
-    if (uploadError) {
-        alert("Error uploading to notes: " + uploadError.message);
-        return;
-    }
-
-    await supabaseClient.storage.from("pending").remove([storagePath]);
-    await supabaseClient.from("pending_files").delete().eq("id", id);
-    alert("File approved!");
-    loadPendingFiles();
-}
-        async function reject(id, storagePath) {
-            await supabaseClient.storage.from("pending").remove([storagePath]);
-            await supabaseClient.from("pending_files").delete().eq("id", id);
-            alert("File rejected!");
-            loadPendingFiles();
+        async function logout() {
+            await supabaseClient.auth.signOut();
         }
     </script>
 </body>

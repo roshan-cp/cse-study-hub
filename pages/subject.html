@@ -3,19 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Subject Notes</title>
+    <title>Subject</title>
     <link rel="stylesheet" href="../style.css">
 </head>
 <body>
     <div class="container">
         <h1 id="subject-title">Loading...</h1>
-        <div id="notes-list">
-            <p>Loading notes...</p>
-        </div>
+        <div id="folders-grid" class="subject-grid"></div>
     </div>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const semester = params.get("semester");
+        const subject = params.get("subject");
+        const type = params.get("type");
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="../supabase-config.js"></script>
-    <script src="../script.js"></script>
+        const subjectNames = {
+            coa: "Computer Organization and Architecture",
+            dbms: "Database Management System",
+            dbmslab: "DBMS Lab",
+            ethics: "Professional Ethics",
+            maths: "Mathematics",
+            os: "Operating System",
+            oslab: "OS Lab",
+            se: "Software Engineering"
+        };
+
+        const theoryFolders = [
+            { name: "📁 Notes", category: "notes" },
+            { name: "📁 Syllabus", category: "syllabus" },
+            { name: "📁 PYQ", category: "pyq" },
+            { name: "📁 Textbook", category: "textbook" },
+            { name: "📁 Series Test", category: "series_test" }
+        ];
+
+        const labFolders = [
+            { name: "📁 Manual", category: "manual" },
+            { name: "📁 Experiments", category: "experiments" },
+            { name: "📁 Experiment Answer Key", category: "experiment_answer_key" },
+            { name: "📁 Questions", category: "questions" }
+        ];
+
+        if (semester && subject) {
+            document.getElementById("subject-title").textContent =
+                `${subjectNames[subject]} (Semester ${semester})`;
+
+            const folders = type === "lab" ? labFolders : theoryFolders;
+            const grid = document.getElementById("folders-grid");
+
+            folders.forEach(folder => {
+                const a = document.createElement("a");
+                a.href = `category.html?semester=${semester}&subject=${subject}&category=${folder.category}`;
+                a.className = "card";
+                a.textContent = folder.name;
+                grid.appendChild(a);
+            });
+        }
+    </script>
 </body>
 </html>

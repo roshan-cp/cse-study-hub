@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notes</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <div class="container">
+        <h1 id="category-title">Loading...</h1>
+        <div id="links-list">
+            <p>Loading...</p>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../supabase-config.js"></script>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const semester = params.get("semester");
+        const subject = params.get("subject");
+        const category = params.get("category");
+
+        const categoryNames = {
+            notes: "Notes",
+            syllabus: "Syllabus",
+            pyq: "PYQ",
+            textbook: "Textbook",
+            series_test: "Series Test",
+            manual: "Manual",
+            experiments: "Experiments",
+            experiment_answer_key: "Experiment Answer Key",
+            questions: "Questions"
+        };
+
+        const subjectNames = {
+            coa: "COA",
+            dbms: "DBMS",
+            dbmslab: "DBMS Lab",
+            ethics: "Ethics",
+            maths: "Mathematics",
+            os: "Operating System",
+            oslab: "OS Lab",
+            se: "Software Engineering"
+        };
+
+        document.getElementById("category-title").textContent =
+            `${subjectNames[subject]} - ${categoryNames[category]} (Semester ${semester})`;
+
+        async function loadLinks() {
+            const linksList = document.getElementById("links-list");
+
+            const { data, error } = await supabaseClient
+                .from("links")
+                .select("*")
+                .eq("semester", semester)
+                .eq("subject", subject)
+                .eq("category", category)
+                .eq("status", "approved")
+                .order("created_at", { ascending: true });
+
+            if (error) {
+                linksList.innerHTML = `<p class="empty-message">Error loading links.</p>`;
+                return;
+            }
+
+            if (!data || data.length === 0) {
+                linksList.innerHTML = `<p class="empty-message">No content available yet.</p>`;
+                return;
+            }
+
+            linksList.innerHTML = "";
+            data.forEach(link => {
+                const div = document.createElement("div");
+                div.className = "note-item";
+                div.innerHTML = `
+                    <a href="${link.drive_link}" target="_blank">
+                        📄 ${link.module_name}
+                    </a>
+                `;
+                linksList.appendChild(div);
+            });
+        }
+
+        loadLinks();
+    </script>
+</body>
+</html>
