@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Year</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <nav id="navbar"></nav>
+    <div class="container">
+        <h1 id="year-title">Loading...</h1>
+        <div id="semester-grid" class="subject-grid"></div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../supabase-config.js"></script>
+    <script src="../navbar.js"></script>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const year = params.get("year");
+
+        const yearNames = {
+            1: "First Year",
+            2: "Second Year",
+            3: "Third Year",
+            4: "Fourth Year"
+        };
+
+        const yearSemesters = {
+            1: [1, 2],
+            2: [3, 4],
+            3: [5, 6],
+            4: [7, 8]
+        };
+
+        document.getElementById("year-title").textContent = yearNames[year];
+
+        const grid = document.getElementById("semester-grid");
+        yearSemesters[year].forEach(sem => {
+            const a = document.createElement("a");
+            a.href = `semester.html?semester=${sem}`;
+            a.className = "card";
+            a.textContent = `Semester ${sem}`;
+            grid.appendChild(a);
+        });
+    </script>
+</body>
+</html>

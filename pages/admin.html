@@ -7,13 +7,15 @@
     <link rel="stylesheet" href="../style.css">
 </head>
 <body>
+    <nav id="navbar"></nav>
     <div class="container">
         <h1>Admin Panel</h1>
-        <div id="links-list"><p>Loading pending links...</p></div>
-        <p><a href="login.html" onclick="logout()">Logout</a></p>
+        <h2>Pending Links</h2>
+        <div id="links-list"><p>Loading...</p></div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../supabase-config.js"></script>
+    <script src="../navbar.js"></script>
     <script>
         const ADMIN_EMAIL = "roshancp.in@gmail.com";
 
@@ -57,35 +59,15 @@
         }
 
         async function approve(id) {
-            const { error } = await supabaseClient
-                .from("links")
-                .update({ status: "approved" })
-                .eq("id", id);
-
-            if (error) {
-                alert("Error: " + error.message);
-                return;
-            }
+            await supabaseClient.from("links").update({ status: "approved" }).eq("id", id);
             alert("Link approved!");
             loadPendingLinks();
         }
 
         async function reject(id) {
-            const { error } = await supabaseClient
-                .from("links")
-                .delete()
-                .eq("id", id);
-
-            if (error) {
-                alert("Error: " + error.message);
-                return;
-            }
+            await supabaseClient.from("links").delete().eq("id", id);
             alert("Link rejected!");
             loadPendingLinks();
-        }
-
-        async function logout() {
-            await supabaseClient.auth.signOut();
         }
     </script>
 </body>

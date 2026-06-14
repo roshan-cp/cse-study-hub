@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="../style.css">
 </head>
 <body>
+    <nav id="navbar"></nav>
     <div class="container">
         <h1>Login</h1>
         <div class="auth-form">
@@ -19,12 +20,15 @@
     </div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../supabase-config.js"></script>
+    <script src="../navbar.js"></script>
     <script>
+        const ADMIN_EMAIL = "YOUR_ADMIN_EMAIL@gmail.com";
+
         async function login() {
             const email = document.getElementById("email").value;
             const password = document.getElementById("password").value;
 
-            const { data, error } = await supabaseClient.auth.signInWithPassword({
+            const { error } = await supabaseClient.auth.signInWithPassword({
                 email, password
             });
 
@@ -33,11 +37,17 @@
                 return;
             }
 
-            // Check if admin
-            if (email === "roshancp.in@gmail.com") {
+            const redirectUrl = sessionStorage.getItem("redirectAfterLogin");
+            if (redirectUrl) {
+                sessionStorage.removeItem("redirectAfterLogin");
+                window.location.href = redirectUrl;
+                return;
+            }
+
+            if (email === ADMIN_EMAIL) {
                 window.location.href = "admin.html";
             } else {
-                window.location.href = "upload.html";
+                window.location.href = "../index.html";
             }
         }
     </script>

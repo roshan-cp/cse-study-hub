@@ -3,23 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notes</title>
+    <title>Category</title>
     <link rel="stylesheet" href="../style.css">
 </head>
 <body>
+    <nav id="navbar"></nav>
     <div class="container">
         <h1 id="category-title">Loading...</h1>
-        <div id="links-list">
-            <p>Loading...</p>
-        </div>
+        <div id="links-list"></div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../supabase-config.js"></script>
+    <script src="../navbar.js"></script>
     <script>
+        const ADMIN_EMAIL = "YOUR_ADMIN_EMAIL@gmail.com";
         const params = new URLSearchParams(window.location.search);
         const semester = params.get("semester");
         const subject = params.get("subject");
+        const type = params.get("type");
         const category = params.get("category");
+        const folderName = params.get("folderName");
+        const isDefault = params.get("isDefault") === "true";
 
         const categoryNames = {
             notes: "Notes",
@@ -33,22 +37,50 @@
             questions: "Questions"
         };
 
-        const subjectNames = {
-            coa: "COA",
-            dbms: "DBMS",
-            dbmslab: "DBMS Lab",
-            ethics: "Ethics",
-            maths: "Mathematics",
-            os: "Operating System",
-            oslab: "OS Lab",
-            se: "Software Engineering"
-        };
-
-        document.getElementById("category-title").textContent =
-            `${subjectNames[subject]} - ${categoryNames[category]} (Semester ${semester})`;
+        const titleEl = document.getElementById("category-title");
+        titleEl.textContent = isDefault ? `📁 ${categoryNames[category]}` : `📁 ${folderName}`;
 
         async function loadLinks() {
+            const { data: sessionData } = await supabaseClient.auth.getSession();
+            const user = sessionData.session?.user;
+            const isAdmin = user?.email === ADMIN_EMAIL;
+            const isLoggedIn = !!user;
+
             const linksList = document.getElementById("links-list");
+            linksList.innerHTML = "";
+
+            // Folder delete button (custom folders only)
+            if (!isDefault) {
+                const { data: folder } = await supabaseClient
+                    .from("folders")
+                    .select("*")
+                    .eq("id", category)
+                    .single();
+
+                const canDeleteFolder = folder && (isAdmin || user?.email === folder.created_by);
+                if (canDeleteFolder) {
+                    const delBtn = document.createElement("button");
+                    delBtn.className = "delete-btn";
+                    delBtn.textContent = "🗑️ Delete Folder";
+                    delBtn.onclick = () => deleteFolder(category);
+                    titleEl.appendChild(delBtn);
+                }
+            }
+
+            // Add Link button - visible to everyone, login required to use
+            const addBtn = document.createElement("button");
+            addBtn.className = "add-link-btn";
+            addBtn.textContent = "➕ Add Link";
+            addBtn.onclick = () => {
+                if (!isLoggedIn) {
+                    sessionStorage.setItem("redirectAfterLogin", window.location.href);
+                    sessionStorage.setItem("resumeAction", "addLink");
+                    window.location.href = "login.html";
+                    return;
+                }
+                addLink(user.email);
+            };
+            linksList.appendChild(addBtn);
 
             const { data, error } = await supabaseClient
                 .from("links")
@@ -60,26 +92,81 @@
                 .order("created_at", { ascending: true });
 
             if (error) {
-                linksList.innerHTML = `<p class="empty-message">Error loading links.</p>`;
+                const p = document.createElement("p");
+                p.className = "empty-message";
+                p.textContent = "Error loading links.";
+                linksList.appendChild(p);
                 return;
             }
 
             if (!data || data.length === 0) {
-                linksList.innerHTML = `<p class="empty-message">No content available yet.</p>`;
+                const p = document.createElement("p");
+                p.className = "empty-message";
+                p.textContent = "No content available yet.";
+                linksList.appendChild(p);
+            } else {
+                data.forEach(link => {
+                    const div = document.createElement("div");
+                    div.className = "note-item";
+                    const canDelete = isAdmin || (user?.email === link.uploaded_by);
+                    div.innerHTML = `
+                        <a href="${link.drive_link}" target="_blank">📄 ${link.module_name}</a>
+                        ${canDelete ? `<button class="delete-btn" onclick="deleteLink('${link.id}')">🗑️</button>` : ""}
+                    `;
+                    linksList.appendChild(div);
+                });
+            }
+
+            // Resume "Add Link" after returning from login
+            if (isLoggedIn && sessionStorage.getItem("resumeAction") === "addLink") {
+                sessionStorage.removeItem("resumeAction");
+                addLink(user.email);
+            }
+        }
+
+        async function addLink(userEmail) {
+            const moduleName = prompt("Enter module name (e.g. Module 1):");
+            if (!moduleName) return;
+
+            const driveLink = prompt("Paste Google Drive link:");
+            if (!driveLink) return;
+
+            if (!driveLink.includes("drive.google.com")) {
+                alert("Please enter a valid Google Drive link!");
                 return;
             }
 
-            linksList.innerHTML = "";
-            data.forEach(link => {
-                const div = document.createElement("div");
-                div.className = "note-item";
-                div.innerHTML = `
-                    <a href="${link.drive_link}" target="_blank">
-                        📄 ${link.module_name}
-                    </a>
-                `;
-                linksList.appendChild(div);
-            });
+            const { error } = await supabaseClient
+                .from("links")
+                .insert({
+                    module_name: moduleName,
+                    drive_link: driveLink,
+                    semester: semester,
+                    subject: subject,
+                    category: category,
+                    uploaded_by: userEmail,
+                    status: "pending"
+                });
+
+            if (error) {
+                alert("Error: " + error.message);
+                return;
+            }
+
+            alert("Link submitted! Waiting for admin approval.");
+        }
+
+        async function deleteLink(id) {
+            if (!confirm("Delete this link?")) return;
+            await supabaseClient.from("links").delete().eq("id", id);
+            loadLinks();
+        }
+
+        async function deleteFolder(id) {
+            if (!confirm("Delete this folder and all its links?")) return;
+            await supabaseClient.from("links").delete().eq("category", id);
+            await supabaseClient.from("folders").delete().eq("id", id);
+            window.location.href = `subject.html?semester=${semester}&subject=${subject}&type=${type}`;
         }
 
         loadLinks();

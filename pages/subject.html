@@ -7,15 +7,21 @@
     <link rel="stylesheet" href="../style.css">
 </head>
 <body>
+    <nav id="navbar"></nav>
     <div class="container">
         <h1 id="subject-title">Loading...</h1>
         <div id="folders-grid" class="subject-grid"></div>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../supabase-config.js"></script>
+    <script src="../navbar.js"></script>
     <script>
+        const ADMIN_EMAIL = "YOUR_ADMIN_EMAIL@gmail.com";
         const params = new URLSearchParams(window.location.search);
         const semester = params.get("semester");
         const subject = params.get("subject");
         const type = params.get("type");
+        const customSubjectName = params.get("subjectName");
 
         const subjectNames = {
             coa: "Computer Organization and Architecture",
@@ -43,21 +49,82 @@
             { name: "📁 Questions", category: "questions" }
         ];
 
-        if (semester && subject) {
-            document.getElementById("subject-title").textContent =
-                `${subjectNames[subject]} (Semester ${semester})`;
+        document.getElementById("subject-title").textContent =
+            `${subjectNames[subject] || customSubjectName || subject} (Semester ${semester})`;
 
-            const folders = type === "lab" ? labFolders : theoryFolders;
+        async function loadFolders() {
+            const { data: sessionData } = await supabaseClient.auth.getSession();
+            const user = sessionData.session?.user;
+            const isLoggedIn = !!user;
+
             const grid = document.getElementById("folders-grid");
+            grid.innerHTML = "";
 
-            folders.forEach(folder => {
+            // Add Folder card - visible to everyone, login required to use
+            const addBtn = document.createElement("div");
+            addBtn.className = "card add-folder-card";
+            addBtn.innerHTML = `➕ Add Folder`;
+            addBtn.onclick = () => {
+                if (!isLoggedIn) {
+                    sessionStorage.setItem("redirectAfterLogin", window.location.href);
+                    window.location.href = "login.html";
+                    return;
+                }
+                addFolder(user.email);
+            };
+            grid.appendChild(addBtn);
+
+            // Default folders
+            const defaultFolders = type === "lab" ? labFolders : theoryFolders;
+            defaultFolders.forEach(folder => {
                 const a = document.createElement("a");
-                a.href = `category.html?semester=${semester}&subject=${subject}&category=${folder.category}`;
+                a.href = `category.html?semester=${semester}&subject=${subject}&type=${type}&category=${folder.category}&isDefault=true`;
                 a.className = "card";
                 a.textContent = folder.name;
                 grid.appendChild(a);
             });
+
+            // Student created folders
+            const { data: customFolders } = await supabaseClient
+                .from("folders")
+                .select("*")
+                .eq("semester", semester)
+                .eq("subject", subject)
+                .order("created_at", { ascending: true });
+
+            if (customFolders) {
+                customFolders.forEach(folder => {
+                    const a = document.createElement("a");
+                    a.href = `category.html?semester=${semester}&subject=${subject}&type=${type}&category=${folder.id}&folderName=${encodeURIComponent(folder.folder_name)}&isDefault=false`;
+                    a.className = "card";
+                    a.textContent = `📁 ${folder.folder_name}`;
+                    grid.appendChild(a);
+                });
+            }
         }
+
+        async function addFolder(userEmail) {
+            const name = prompt("Enter folder name:");
+            if (!name) return;
+
+            const { error } = await supabaseClient
+                .from("folders")
+                .insert({
+                    folder_name: name,
+                    semester: semester,
+                    subject: subject,
+                    created_by: userEmail
+                });
+
+            if (error) {
+                alert("Error: " + error.message);
+                return;
+            }
+
+            loadFolders();
+        }
+
+        loadFolders();
     </script>
 </body>
 </html>

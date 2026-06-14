@@ -133,3 +133,89 @@ h1 {
     cursor: pointer;
     font-size: 16px;
 }
+nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 30px;
+    background: #2c3e50;
+    color: white;
+}
+
+.nav-brand {
+    color: white;
+    text-decoration: none;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    color: white;
+}
+
+.nav-login {
+    color: white;
+    text-decoration: none;
+    background: #27ae60;
+    padding: 8px 16px;
+    border-radius: 6px;
+}
+
+nav button {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.card-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.card-wrapper .card {
+    flex: 1;
+}
+
+.delete-btn {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-left: 10px;
+}
+
+.add-link-btn {
+    background: #27ae60;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-bottom: 15px;
+    font-size: 16px;
+}
+
+.add-folder-card {
+    cursor: pointer;
+    background: #27ae60 !important;
+    color: white !important;
+}
+#category-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+#category-title .delete-btn {
+    font-size: 14px;
+}
