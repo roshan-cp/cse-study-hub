@@ -64,14 +64,6 @@
             const grid = document.getElementById("subject-grid");
             grid.innerHTML = "";
 
-            // Add Subject card — no login required
-            const addCard = document.createElement("div");
-            addCard.className = "card add-subject-card";
-            addCard.style.cursor = "pointer";
-            addCard.innerHTML = "➕ Add Subject";
-            addCard.onclick = addSubject;
-            grid.appendChild(addCard);
-
             // Hardcoded defaults
             const defaults = defaultSubjects[semester] || [];
             defaults.forEach(subject => {
@@ -100,40 +92,39 @@
             }
         }
 
-        async function addSubject() {
-            const name = prompt("Subject name:");
-            if (!name || name.trim() === "") return;
+       async function addSubject() {
+    const name = prompt("Subject name:");
+    if (!name || name.trim() === "") return;
 
-            const id = prompt("Subject ID (short, e.g. ds, cn, algo):");
-            if (!id || id.trim() === "") return;
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+    const user = sessionData.session?.user;
 
-            const type = prompt("Type — enter  theory  or  lab:");
-            if (type !== "theory" && type !== "lab") {
-                alert("Must be exactly 'theory' or 'lab'");
-                return;
-            }
+    // Generate subject ID automatically
+    let id = name
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9 ]/g, "")
+        .replace(/\s+/g, "");
 
-            const { data: sessionData } = await supabaseClient.auth.getSession();
-            const user = sessionData.session?.user;
+    const { error } = await supabaseClient
+        .from("subjects")
+        .insert({
+            name: name.trim(),
+            subject_id: id,
+            type: "theory",
+            semester: semester,
+            created_by: user?.email || "anonymous"
+        });
 
-            const { error } = await supabaseClient
-                .from("subjects")
-                .insert({
-                    name: name.trim(),
-                    subject_id: id.trim().toLowerCase(),
-                    type: type,
-                    semester: semester,
-                    created_by: user?.email || "anonymous"
-                });
+    if (error) {
+        alert("Error adding subject: " + error.message);
+        return;
+    }
 
-            if (error) {
-                alert("Error adding subject: " + error.message);
-                return;
-            }
-
-            alert("Subject added!");
-            loadSubjects();
-        }
+    alert("Subject added!");
+    loadSubjects();
+}
+        
 
         loadNavbar();
         loadSubjects();
