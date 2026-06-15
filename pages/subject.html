@@ -15,7 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../supabase-config.js"></script>
     <script>
-        const ADMIN_EMAIL = "YOUR_ADMIN_EMAIL@gmail.com";
+        const ADMIN_EMAIL = "roshancp.in@gmail.com";
         const params = new URLSearchParams(window.location.search);
         const semester = params.get("semester");
         const subject = params.get("subject");
@@ -51,7 +51,7 @@
             const { data } = await supabaseClient.auth.getSession();
             const user = data.session?.user;
             const navbar = document.getElementById("navbar");
-            
+
             if (user) {
                 navbar.innerHTML = `
                     <div class="nav-left">
@@ -73,27 +73,36 @@
             window.location.reload();
         }
 
-        document.getElementById("subject-title").textContent = `${subjectNames[subject]} (Semester ${semester})`;
+        async function resolveSubjectTitle() {
+            let displayName = subjectNames[subject];
+            if (!displayName) {
+                const { data } = await supabaseClient
+                    .from("subjects")
+                    .select("name")
+                    .eq("subject_id", subject)
+                    .eq("semester", semester)
+                    .single();
+                displayName = data?.name || subject;
+            }
+            document.getElementById("subject-title").textContent = `${displayName} (Semester ${semester})`;
+        }
 
         async function loadFolders() {
             const { data: sessionData } = await supabaseClient.auth.getSession();
             const user = sessionData.session?.user;
-            const isLoggedIn = !!user;
 
             const grid = document.getElementById("folders-grid");
             grid.innerHTML = "";
 
-            // Add Folder button - only for logged in users
-            if (isLoggedIn) {
-                const addBtn = document.createElement("div");
-                addBtn.className = "card add-folder-card";
-                addBtn.style.cursor = "pointer";
-                addBtn.innerHTML = `➕ Add Folder`;
-                addBtn.onclick = function() { addFolder(user.email); };
-                grid.appendChild(addBtn);
-            }
+            // Add Folder card — no login required
+            const addBtn = document.createElement("div");
+            addBtn.className = "card add-folder-card";
+            addBtn.style.cursor = "pointer";
+            addBtn.innerHTML = "➕ Add Folder";
+            addBtn.onclick = function () { addFolder(); };
+            grid.appendChild(addBtn);
 
-            // Default folders - visible to everyone
+            // Default folders
             const defaultFolders = type === "lab" ? labFolders : theoryFolders;
             defaultFolders.forEach(folder => {
                 const a = document.createElement("a");
@@ -103,7 +112,7 @@
                 grid.appendChild(a);
             });
 
-            // Student created folders - visible to everyone, NO delete button here
+            // Custom folders from Supabase
             const { data: customFolders } = await supabaseClient
                 .from("folders")
                 .select("*")
@@ -122,12 +131,15 @@
             }
         }
 
-        async function addFolder(userEmail) {
+        async function addFolder() {
             const name = prompt("Enter folder name:");
             if (!name || name.trim() === "") {
                 alert("Folder name cannot be empty!");
                 return;
             }
+
+            const { data: sessionData } = await supabaseClient.auth.getSession();
+            const user = sessionData.session?.user;
 
             const { error } = await supabaseClient
                 .from("folders")
@@ -135,7 +147,7 @@
                     folder_name: name.trim(),
                     semester: semester,
                     subject: subject,
-                    created_by: userEmail
+                    created_by: user?.email || "anonymous"
                 });
 
             if (error) {
@@ -143,11 +155,12 @@
                 return;
             }
 
-            alert("Folder created successfully!");
+            alert("Folder created!");
             loadFolders();
         }
 
         loadNavbar();
+        resolveSubjectTitle();
         loadFolders();
     </script>
 </body>

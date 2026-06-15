@@ -41,7 +41,7 @@
             const { data } = await supabaseClient.auth.getSession();
             const user = data.session?.user;
             const navbar = document.getElementById("navbar");
-            
+
             if (user) {
                 navbar.innerHTML = `
                     <div class="nav-left">
@@ -99,23 +99,24 @@
             const { data: sessionData } = await supabaseClient.auth.getSession();
             const user = sessionData.session?.user;
             const isAdmin = user?.email === ADMIN_EMAIL;
-            const isLoggedIn = !!user;
 
-            // Add Link Section
+            // Add Link button — login required
             const addLinkSection = document.getElementById("add-link-section");
             addLinkSection.innerHTML = "";
-            
-            if (isLoggedIn) {
-                const addBtn = document.createElement("button");
-                addBtn.className = "add-link-btn";
-                addBtn.textContent = "➕ Add Link";
-                addBtn.onclick = function() { 
-                    addLink(user.email); 
-                };
-                addLinkSection.appendChild(addBtn);
-            }
 
-            // Load Links
+            const addBtn = document.createElement("button");
+            addBtn.className = "add-link-btn";
+            addBtn.textContent = "➕ Add Link";
+            addBtn.onclick = function () {
+                if (!user) {
+                    window.location.href = "login.html";
+                    return;
+                }
+                addLink(user.email);
+            };
+            addLinkSection.appendChild(addBtn);
+
+            // Load approved links
             const linksList = document.getElementById("links-list");
             linksList.innerHTML = `<p style="color: blue;">⏳ Loading content...</p>`;
 
@@ -145,33 +146,27 @@
             data.forEach(link => {
                 const div = document.createElement("div");
                 div.className = "note-item";
-                // Admin can delete ALL links, user can only delete THEIR OWN
                 const canDelete = isAdmin || (user?.email === link.uploaded_by);
                 div.innerHTML = `
                     <a href="${link.drive_link}" target="_blank" style="flex:1; display:block;">📄 ${link.module_name}</a>
-                    ${canDelete && isLoggedIn ? `<button class="delete-btn" onclick="deleteLink('${link.id}')">🗑️</button>` : ""}
+                    ${canDelete && user ? `<button class="delete-btn" onclick="deleteLink('${link.id}')">🗑️</button>` : ""}
                 `;
                 linksList.appendChild(div);
             });
         }
 
         async function addLink(userEmail) {
-            const moduleName = prompt("Enter module name (e.g. Module 1):");
-            if (!moduleName) return;
+            const moduleName = prompt("Link title (e.g. Unit 1 Notes):");
+            if (!moduleName || moduleName.trim() === "") return;
 
-            const driveLink = prompt("Paste Google Drive link:");
-            if (!driveLink) return;
-
-            if (!driveLink.includes("drive.google.com")) {
-                alert("Please enter a valid Google Drive link!");
-                return;
-            }
+            const driveLink = prompt("Paste the Google Drive / link URL:");
+            if (!driveLink || driveLink.trim() === "") return;
 
             const { error } = await supabaseClient
                 .from("links")
                 .insert({
-                    module_name: moduleName,
-                    drive_link: driveLink,
+                    module_name: moduleName.trim(),
+                    drive_link: driveLink.trim(),
                     semester: semester,
                     subject: subject,
                     category: category,
@@ -180,11 +175,11 @@
                 });
 
             if (error) {
-                alert("Error: " + error.message);
+                alert("Error submitting link: " + error.message);
                 return;
             }
 
-            alert("Link submitted! Waiting for admin approval.");
+            alert("Link submitted! It will appear after admin approval.");
             loadLinks();
         }
 

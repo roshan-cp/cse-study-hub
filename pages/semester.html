@@ -15,10 +15,11 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../supabase-config.js"></script>
     <script>
+        const ADMIN_EMAIL = "roshancp.in@gmail.com";
         const params = new URLSearchParams(window.location.search);
         const semester = params.get("semester");
 
-        const subjects = {
+        const defaultSubjects = {
             4: [
                 { name: "COA", id: "coa", type: "theory" },
                 { name: "DBMS", id: "dbms", type: "theory" },
@@ -35,7 +36,7 @@
             const { data } = await supabaseClient.auth.getSession();
             const user = data.session?.user;
             const navbar = document.getElementById("navbar");
-            
+
             if (user) {
                 navbar.innerHTML = `
                     <div class="nav-left">
@@ -59,21 +60,83 @@
 
         document.getElementById("semester-title").textContent = `Semester ${semester}`;
 
-        const grid = document.getElementById("subject-grid");
+        async function loadSubjects() {
+            const grid = document.getElementById("subject-grid");
+            grid.innerHTML = "";
 
-        if (subjects[semester]) {
-            subjects[semester].forEach(subject => {
+            // Add Subject card — no login required
+            const addCard = document.createElement("div");
+            addCard.className = "card add-subject-card";
+            addCard.style.cursor = "pointer";
+            addCard.innerHTML = "➕ Add Subject";
+            addCard.onclick = addSubject;
+            grid.appendChild(addCard);
+
+            // Hardcoded defaults
+            const defaults = defaultSubjects[semester] || [];
+            defaults.forEach(subject => {
                 const a = document.createElement("a");
                 a.href = `subject.html?semester=${semester}&subject=${subject.id}&type=${subject.type}`;
                 a.className = "card";
                 a.textContent = subject.name;
                 grid.appendChild(a);
             });
-        } else {
-            grid.innerHTML = `<p class="empty-message">Subjects coming soon...</p>`;
+
+            // Custom subjects from Supabase
+            const { data: customSubjects } = await supabaseClient
+                .from("subjects")
+                .select("*")
+                .eq("semester", semester)
+                .order("created_at", { ascending: true });
+
+            if (customSubjects && customSubjects.length > 0) {
+                customSubjects.forEach(subject => {
+                    const a = document.createElement("a");
+                    a.href = `subject.html?semester=${semester}&subject=${subject.subject_id}&type=${subject.type}`;
+                    a.className = "card";
+                    a.textContent = subject.name;
+                    grid.appendChild(a);
+                });
+            }
+        }
+
+        async function addSubject() {
+            const name = prompt("Subject name:");
+            if (!name || name.trim() === "") return;
+
+            const id = prompt("Subject ID (short, e.g. ds, cn, algo):");
+            if (!id || id.trim() === "") return;
+
+            const type = prompt("Type — enter  theory  or  lab:");
+            if (type !== "theory" && type !== "lab") {
+                alert("Must be exactly 'theory' or 'lab'");
+                return;
+            }
+
+            const { data: sessionData } = await supabaseClient.auth.getSession();
+            const user = sessionData.session?.user;
+
+            const { error } = await supabaseClient
+                .from("subjects")
+                .insert({
+                    name: name.trim(),
+                    subject_id: id.trim().toLowerCase(),
+                    type: type,
+                    semester: semester,
+                    created_by: user?.email || "anonymous"
+                });
+
+            if (error) {
+                alert("Error adding subject: " + error.message);
+                return;
+            }
+
+            alert("Subject added!");
+            loadSubjects();
         }
 
         loadNavbar();
+        loadSubjects();
     </script>
 </body>
 </html>
