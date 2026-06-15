@@ -14,7 +14,6 @@
     </div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../supabase-config.js"></script>
-    <script src="../navbar.js"></script>
     <script>
         const params = new URLSearchParams(window.location.search);
         const year = params.get("year");
@@ -33,6 +32,32 @@
             4: [7, 8]
         };
 
+        async function loadNavbar() {
+            const { data } = await supabaseClient.auth.getSession();
+            const user = data.session?.user;
+            const navbar = document.getElementById("navbar");
+            
+            if (user) {
+                navbar.innerHTML = `
+                    <div class="nav-left">
+                        <a href="../index.html" class="nav-brand">CSE Study Hub</a>
+                        <span class="user-name">Hi, ${user.email.split("@")[0]}</span>
+                    </div>
+                    <button onclick="logout()" class="logout-btn">Logout</button>
+                `;
+            } else {
+                navbar.innerHTML = `
+                    <a href="../index.html" class="nav-brand">CSE Study Hub</a>
+                    <a href="login.html" class="nav-login">Login</a>
+                `;
+            }
+        }
+
+        async function logout() {
+            await supabaseClient.auth.signOut();
+            window.location.reload();
+        }
+
         document.getElementById("year-title").textContent = yearNames[year];
 
         const grid = document.getElementById("semester-grid");
@@ -43,6 +68,8 @@
             a.textContent = `Semester ${sem}`;
             grid.appendChild(a);
         });
+
+        loadNavbar();
     </script>
 </body>
 </html>

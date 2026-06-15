@@ -14,20 +14,54 @@
             <input type="text" id="name" placeholder="Your Name" />
             <input type="email" id="email" placeholder="Email" />
             <input type="password" id="password" placeholder="Password" />
-            <button onclick="signup()">Sign Up</button>
-            <p>Already have an account? <a href="login.html">Login</a></p>
+            <button onclick="signup()" id="signup-btn">Sign Up</button>
+            <p id="loading-msg" style="color:blue; display:none;">⏳ Creating account...</p>
             <p id="error-msg" style="color:red;"></p>
             <p id="success-msg" style="color:green;"></p>
+            <p>Already have an account? <a href="login.html">Login</a></p>
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../supabase-config.js"></script>
-    <script src="../navbar.js"></script>
     <script>
+        async function loadNavbar() {
+            const { data } = await supabaseClient.auth.getSession();
+            const user = data.session?.user;
+            const navbar = document.getElementById("navbar");
+            if (user) {
+                navbar.innerHTML = `
+                    <div class="nav-left">
+                        <a href="../index.html" class="nav-brand">CSE Study Hub</a>
+                        <span class="user-name">Hi, ${user.email.split("@")[0]}</span>
+                    </div>
+                    <button onclick="logout()" class="logout-btn">Logout</button>
+                `;
+            } else {
+                navbar.innerHTML = `
+                    <a href="../index.html" class="nav-brand">CSE Study Hub</a>
+                    <a href="login.html" class="nav-login">Login</a>
+                `;
+            }
+        }
+
+        async function logout() {
+            await supabaseClient.auth.signOut();
+            window.location.reload();
+        }
+
         async function signup() {
             const name = document.getElementById("name").value;
             const email = document.getElementById("email").value;
             const password = document.getElementById("password").value;
+
+            if (!name || !email || !password) {
+                document.getElementById("error-msg").textContent = "Please fill all fields!";
+                return;
+            }
+
+            document.getElementById("signup-btn").disabled = true;
+            document.getElementById("loading-msg").style.display = "block";
+            document.getElementById("error-msg").textContent = "";
 
             const { error } = await supabaseClient.auth.signUp({
                 email,
@@ -37,12 +71,17 @@
 
             if (error) {
                 document.getElementById("error-msg").textContent = error.message;
+                document.getElementById("signup-btn").disabled = false;
+                document.getElementById("loading-msg").style.display = "none";
                 return;
             }
 
-            document.getElementById("success-msg").textContent =
-                "Account created! You can now login.";
+            document.getElementById("success-msg").textContent = "Account created! You can now login.";
+            document.getElementById("signup-btn").disabled = false;
+            document.getElementById("loading-msg").style.display = "none";
         }
+
+        loadNavbar();
     </script>
 </body>
 </html>

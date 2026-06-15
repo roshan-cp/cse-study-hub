@@ -14,14 +14,12 @@
     </div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../supabase-config.js"></script>
-    <script src="../navbar.js"></script>
     <script>
         const ADMIN_EMAIL = "YOUR_ADMIN_EMAIL@gmail.com";
         const params = new URLSearchParams(window.location.search);
         const semester = params.get("semester");
         const subject = params.get("subject");
         const type = params.get("type");
-        const customSubjectName = params.get("subjectName");
 
         const subjectNames = {
             coa: "Computer Organization and Architecture",
@@ -49,8 +47,33 @@
             { name: "📁 Questions", category: "questions" }
         ];
 
-        document.getElementById("subject-title").textContent =
-            `${subjectNames[subject] || customSubjectName || subject} (Semester ${semester})`;
+        async function loadNavbar() {
+            const { data } = await supabaseClient.auth.getSession();
+            const user = data.session?.user;
+            const navbar = document.getElementById("navbar");
+            
+            if (user) {
+                navbar.innerHTML = `
+                    <div class="nav-left">
+                        <a href="../index.html" class="nav-brand">CSE Study Hub</a>
+                        <span class="user-name">Hi, ${user.email.split("@")[0]}</span>
+                    </div>
+                    <button onclick="logout()" class="logout-btn">Logout</button>
+                `;
+            } else {
+                navbar.innerHTML = `
+                    <a href="../index.html" class="nav-brand">CSE Study Hub</a>
+                    <a href="login.html" class="nav-login">Login</a>
+                `;
+            }
+        }
+
+        async function logout() {
+            await supabaseClient.auth.signOut();
+            window.location.reload();
+        }
+
+        document.getElementById("subject-title").textContent = `${subjectNames[subject]} (Semester ${semester})`;
 
         async function loadFolders() {
             const { data: sessionData } = await supabaseClient.auth.getSession();
@@ -60,31 +83,27 @@
             const grid = document.getElementById("folders-grid");
             grid.innerHTML = "";
 
-            // Add Folder card - visible to everyone, login required to use
-            const addBtn = document.createElement("div");
-            addBtn.className = "card add-folder-card";
-            addBtn.innerHTML = `➕ Add Folder`;
-            addBtn.onclick = () => {
-                if (!isLoggedIn) {
-                    sessionStorage.setItem("redirectAfterLogin", window.location.href);
-                    window.location.href = "login.html";
-                    return;
-                }
-                addFolder(user.email);
-            };
-            grid.appendChild(addBtn);
+            // Add Folder button - only for logged in users
+            if (isLoggedIn) {
+                const addBtn = document.createElement("div");
+                addBtn.className = "card add-folder-card";
+                addBtn.style.cursor = "pointer";
+                addBtn.innerHTML = `➕ Add Folder`;
+                addBtn.onclick = function() { addFolder(user.email); };
+                grid.appendChild(addBtn);
+            }
 
-            // Default folders
+            // Default folders - visible to everyone
             const defaultFolders = type === "lab" ? labFolders : theoryFolders;
             defaultFolders.forEach(folder => {
                 const a = document.createElement("a");
-                a.href = `category.html?semester=${semester}&subject=${subject}&type=${type}&category=${folder.category}&isDefault=true`;
+                a.href = `category.html?semester=${semester}&subject=${subject}&category=${folder.category}&isDefault=true`;
                 a.className = "card";
                 a.textContent = folder.name;
                 grid.appendChild(a);
             });
 
-            // Student created folders
+            // Student created folders - visible to everyone, NO delete button here
             const { data: customFolders } = await supabaseClient
                 .from("folders")
                 .select("*")
@@ -92,10 +111,10 @@
                 .eq("subject", subject)
                 .order("created_at", { ascending: true });
 
-            if (customFolders) {
+            if (customFolders && customFolders.length > 0) {
                 customFolders.forEach(folder => {
                     const a = document.createElement("a");
-                    a.href = `category.html?semester=${semester}&subject=${subject}&type=${type}&category=${folder.id}&folderName=${encodeURIComponent(folder.folder_name)}&isDefault=false`;
+                    a.href = `category.html?semester=${semester}&subject=${subject}&category=${folder.id}&folderName=${folder.folder_name}&isDefault=false`;
                     a.className = "card";
                     a.textContent = `📁 ${folder.folder_name}`;
                     grid.appendChild(a);
@@ -105,25 +124,30 @@
 
         async function addFolder(userEmail) {
             const name = prompt("Enter folder name:");
-            if (!name) return;
+            if (!name || name.trim() === "") {
+                alert("Folder name cannot be empty!");
+                return;
+            }
 
             const { error } = await supabaseClient
                 .from("folders")
                 .insert({
-                    folder_name: name,
+                    folder_name: name.trim(),
                     semester: semester,
                     subject: subject,
                     created_by: userEmail
                 });
 
             if (error) {
-                alert("Error: " + error.message);
+                alert("Error creating folder: " + error.message);
                 return;
             }
 
+            alert("Folder created successfully!");
             loadFolders();
         }
 
+        loadNavbar();
         loadFolders();
     </script>
 </body>

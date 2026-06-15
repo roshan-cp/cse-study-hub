@@ -1,4 +1,4 @@
-const ADMIN_EMAIL = "YOUR_ADMIN_EMAIL@gmail.com";
+const ADMIN_EMAIL = "roshancp.in@gmail.com";
 
 async function loadNavbar() {
     const { data } = await supabaseClient.auth.getSession();

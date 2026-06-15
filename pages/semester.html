@@ -14,13 +14,9 @@
     </div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../supabase-config.js"></script>
-    <script src="../navbar.js"></script>
     <script>
-        const ADMIN_EMAIL = "YOUR_ADMIN_EMAIL@gmail.com";
         const params = new URLSearchParams(window.location.search);
         const semester = params.get("semester");
-
-        document.getElementById("semester-title").textContent = `Semester ${semester}`;
 
         const subjects = {
             4: [
@@ -35,104 +31,49 @@
             ]
         };
 
+        async function loadNavbar() {
+            const { data } = await supabaseClient.auth.getSession();
+            const user = data.session?.user;
+            const navbar = document.getElementById("navbar");
+            
+            if (user) {
+                navbar.innerHTML = `
+                    <div class="nav-left">
+                        <a href="../index.html" class="nav-brand">CSE Study Hub</a>
+                        <span class="user-name">Hi, ${user.email.split("@")[0]}</span>
+                    </div>
+                    <button onclick="logout()" class="logout-btn">Logout</button>
+                `;
+            } else {
+                navbar.innerHTML = `
+                    <a href="../index.html" class="nav-brand">CSE Study Hub</a>
+                    <a href="login.html" class="nav-login">Login</a>
+                `;
+            }
+        }
+
+        async function logout() {
+            await supabaseClient.auth.signOut();
+            window.location.reload();
+        }
+
+        document.getElementById("semester-title").textContent = `Semester ${semester}`;
+
         const grid = document.getElementById("subject-grid");
 
-        async function loadSubjects() {
-            grid.innerHTML = "";
-
-            const { data: sessionData } = await supabaseClient.auth.getSession();
-            const user = sessionData.session?.user;
-            const isLoggedIn = !!user;
-            const isAdmin = user?.email === ADMIN_EMAIL;
-
-            // Add Folder card (adds a new subject) - visible to everyone, login required
-            const addBtn = document.createElement("div");
-            addBtn.className = "card add-folder-card";
-            addBtn.innerHTML = `➕ Add Folder`;
-            addBtn.onclick = () => {
-                if (!isLoggedIn) {
-                    sessionStorage.setItem("redirectAfterLogin", window.location.href);
-                    window.location.href = "login.html";
-                    return;
-                }
-                addSubject(user.email);
-            };
-            grid.appendChild(addBtn);
-
-            // Predefined subjects
-            if (subjects[semester]) {
-                subjects[semester].forEach(subject => {
-                    const a = document.createElement("a");
-                    a.href = `subject.html?semester=${semester}&subject=${subject.id}&type=${subject.type}`;
-                    a.className = "card";
-                    a.textContent = subject.name;
-                    grid.appendChild(a);
-                });
-            }
-
-            // Custom subjects added by users
-            const { data: customSubjects } = await supabaseClient
-                .from("subjects")
-                .select("*")
-                .eq("semester", semester)
-                .order("created_at", { ascending: true });
-
-            if (customSubjects) {
-                customSubjects.forEach(subject => {
-                    const div = document.createElement("div");
-                    div.className = "card-wrapper";
-
-                    const canDelete = isAdmin || (user?.email === subject.created_by);
-
-                    div.innerHTML = `
-                        <a href="subject.html?semester=${semester}&subject=${subject.id}&type=${subject.type}&subjectName=${encodeURIComponent(subject.subject_name)}&isCustom=true"
-                           class="card">${subject.subject_name}</a>
-                        ${canDelete ? `<button class="delete-btn" onclick="deleteSubject('${subject.id}')">🗑️</button>` : ""}
-                    `;
-                    grid.appendChild(div);
-                });
-            }
-
-            if (!subjects[semester] && (!customSubjects || customSubjects.length === 0)) {
-                const msg = document.createElement("p");
-                msg.className = "empty-message";
-                msg.textContent = "No subjects yet — be the first to add one!";
-                grid.appendChild(msg);
-            }
+        if (subjects[semester]) {
+            subjects[semester].forEach(subject => {
+                const a = document.createElement("a");
+                a.href = `subject.html?semester=${semester}&subject=${subject.id}&type=${subject.type}`;
+                a.className = "card";
+                a.textContent = subject.name;
+                grid.appendChild(a);
+            });
+        } else {
+            grid.innerHTML = `<p class="empty-message">Subjects coming soon...</p>`;
         }
 
-        async function addSubject(userEmail) {
-            const name = prompt("Enter subject name:");
-            if (!name) return;
-
-            let type = prompt("Is this a theory or lab subject? (type 'theory' or 'lab')", "theory");
-            type = (type || "theory").toLowerCase();
-            if (type !== "theory" && type !== "lab") type = "theory";
-
-            const { error } = await supabaseClient
-                .from("subjects")
-                .insert({
-                    subject_name: name,
-                    semester: semester,
-                    type: type,
-                    created_by: userEmail
-                });
-
-            if (error) {
-                alert("Error: " + error.message);
-                return;
-            }
-
-            loadSubjects();
-        }
-
-        async function deleteSubject(id) {
-            if (!confirm("Delete this subject? This won't remove its folders/links.")) return;
-            await supabaseClient.from("subjects").delete().eq("id", id);
-            loadSubjects();
-        }
-
-        loadSubjects();
+        loadNavbar();
     </script>
 </body>
 </html>

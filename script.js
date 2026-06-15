@@ -1,1 +1,0 @@
-//not useing scripy.js in new 
