@@ -62,12 +62,12 @@
             document.getElementById("loading-msg").style.display = "block";
             document.getElementById("error-msg").textContent = "";
 
-            const { error } = await supabaseClient.auth.signInWithPassword({
-                email, password
-            });
+            const { error } = await withRetry(() =>
+                supabaseClient.auth.signInWithPassword({ email, password })
+            );
 
             if (error) {
-                document.getElementById("error-msg").textContent = error.message;
+                document.getElementById("error-msg").textContent = friendlyErrorMessage(error);
                 document.getElementById("login-btn").disabled = false;
                 document.getElementById("loading-msg").style.display = "none";
                 return;

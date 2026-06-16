@@ -185,12 +185,35 @@
                 grid.appendChild(a);
             });
 
-            // Custom subjects from Supabase
-            const { data: customSubjects } = await supabaseClient
-                .from("subjects")
-                .select("*")
-                .eq("semester", semester)
-                .order("created_at", { ascending: true });
+            // Loading indicator while custom subjects are fetched, so a slow
+            // connection looks like "loading" instead of "stuck/broken"
+            const loadingMsg = document.createElement("p");
+            loadingMsg.style.cssText = "grid-column:1/-1; text-align:center; color:#888;";
+            loadingMsg.textContent = "⏳ Loading additional subjects...";
+            grid.appendChild(loadingMsg);
+
+            // Custom subjects from Supabase (retried automatically on flaky connections)
+            const { data: customSubjects, error } = await withRetry(() =>
+                supabaseClient
+                    .from("subjects")
+                    .select("*")
+                    .eq("semester", semester)
+                    .order("created_at", { ascending: true })
+            );
+
+            loadingMsg.remove();
+
+            if (error) {
+                const errMsg = document.createElement("p");
+                errMsg.style.cssText = "grid-column:1/-1; text-align:center; color:#e74c3c;";
+                errMsg.innerHTML = `⚠️ Couldn't load additional subjects. <a href="#" id="retry-subjects">Retry</a>`;
+                grid.appendChild(errMsg);
+                document.getElementById("retry-subjects").onclick = function (e) {
+                    e.preventDefault();
+                    loadSubjects();
+                };
+                return;
+            }
 
             if (customSubjects && customSubjects.length > 0) {
                 customSubjects.forEach(subject => {
@@ -217,18 +240,20 @@
         .replace(/[^a-z0-9 ]/g, "")
         .replace(/\s+/g, "");
 
-    const { error } = await supabaseClient
-        .from("subjects")
-        .insert({
-            name: name.trim(),
-            subject_id: id,
-            type: "theory",
-            semester: semester,
-            created_by: user?.email || "anonymous"
-        });
+    const { error } = await withRetry(() =>
+        supabaseClient
+            .from("subjects")
+            .insert({
+                name: name.trim(),
+                subject_id: id,
+                type: "theory",
+                semester: semester,
+                created_by: user?.email || "anonymous"
+            })
+    );
 
     if (error) {
-        alert("Error adding subject: " + error.message);
+        alert("Error adding subject: " + friendlyErrorMessage(error));
         return;
     }
 

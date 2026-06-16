@@ -73,13 +73,15 @@
             const user = sessionData.session?.user;
             const isAdmin = user?.email === ADMIN_EMAIL;
 
-            const { data: folder } = await supabaseClient
-                .from("folders")
-                .select("*")
-                .eq("id", category)
-                .single();
+            const { data: folder, error } = await withRetry(() =>
+                supabaseClient
+                    .from("folders")
+                    .select("*")
+                    .eq("id", category)
+                    .single()
+            );
 
-            if (!folder) return;
+            if (error || !folder) return;
 
             const folderInfo = document.getElementById("folder-info");
             const canDeleteFolder = isAdmin || (user?.email === folder.created_by);
@@ -120,21 +122,25 @@
             const linksList = document.getElementById("links-list");
             linksList.innerHTML = `<p style="color: blue;">⏳ Loading content...</p>`;
 
-            await new Promise(resolve => setTimeout(resolve, 300));
-
-            const { data, error } = await supabaseClient
-                .from("links")
-                .select("*")
-                .eq("semester", semester)
-                .eq("subject", subject)
-                .eq("category", category)
-                .eq("status", "approved")
-                .order("created_at", { ascending: true });
+            const { data, error } = await withRetry(() =>
+                supabaseClient
+                    .from("links")
+                    .select("*")
+                    .eq("semester", semester)
+                    .eq("subject", subject)
+                    .eq("category", category)
+                    .eq("status", "approved")
+                    .order("created_at", { ascending: true })
+            );
 
             linksList.innerHTML = "";
 
             if (error) {
-                linksList.innerHTML = `<p class="empty-message">Error loading links.</p>`;
+                linksList.innerHTML = `<p class="empty-message">⚠️ ${friendlyErrorMessage(error)} <a href="#" id="retry-links">Retry</a></p>`;
+                document.getElementById("retry-links").onclick = function (e) {
+                    e.preventDefault();
+                    loadLinks();
+                };
                 return;
             }
 
@@ -162,20 +168,22 @@
             const driveLink = prompt("Paste the Google Drive / link URL:");
             if (!driveLink || driveLink.trim() === "") return;
 
-            const { error } = await supabaseClient
-                .from("links")
-                .insert({
-                    module_name: moduleName.trim(),
-                    drive_link: driveLink.trim(),
-                    semester: semester,
-                    subject: subject,
-                    category: category,
-                    uploaded_by: userEmail,
-                    status: "pending"
-                });
+            const { error } = await withRetry(() =>
+                supabaseClient
+                    .from("links")
+                    .insert({
+                        module_name: moduleName.trim(),
+                        drive_link: driveLink.trim(),
+                        semester: semester,
+                        subject: subject,
+                        category: category,
+                        uploaded_by: userEmail,
+                        status: "pending"
+                    })
+            );
 
             if (error) {
-                alert("Error submitting link: " + error.message);
+                alert("Error submitting link: " + friendlyErrorMessage(error));
                 return;
             }
 
@@ -185,14 +193,28 @@
 
         async function deleteLink(id) {
             if (!confirm("Delete this link?")) return;
-            await supabaseClient.from("links").delete().eq("id", id);
+            const { error } = await withRetry(() =>
+                supabaseClient.from("links").delete().eq("id", id)
+            );
+            if (error) {
+                alert("Error deleting link: " + friendlyErrorMessage(error));
+                return;
+            }
             loadLinks();
         }
 
         async function deleteFolder(id) {
             if (!confirm("Delete this folder and all its links?")) return;
-            await supabaseClient.from("folders").delete().eq("id", id);
-            await supabaseClient.from("links").delete().eq("category", id);
+            const { error } = await withRetry(() =>
+                supabaseClient.from("folders").delete().eq("id", id)
+            );
+            if (error) {
+                alert("Error deleting folder: " + friendlyErrorMessage(error));
+                return;
+            }
+            await withRetry(() =>
+                supabaseClient.from("links").delete().eq("category", id)
+            );
             window.location.href = `subject.html?semester=${semester}&subject=${subject}&type=theory`;
         }
 

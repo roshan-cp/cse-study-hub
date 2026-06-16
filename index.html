@@ -61,18 +61,22 @@
             return;
         }
 
-        // Get count of pending links
-        const { data: pendingLinks } = await supabaseClient
-            .from("links")
-            .select("id")
-            .eq("status", "pending");
+        // Get count of pending links (retried automatically on flaky connections)
+        const { data: pendingLinks, error } = await withRetry(() =>
+            supabaseClient
+                .from("links")
+                .select("id")
+                .eq("status", "pending")
+        );
 
-        const count = pendingLinks ? pendingLinks.length : 0;
+        const statusHtml = error
+            ? `⚠️ Couldn't load count`
+            : `🔴 ${pendingLinks ? pendingLinks.length : 0} pending`;
 
         container.innerHTML = `
             <div class="card pending-requests-card" onclick="goToPending()">
                 📋 Pending Requests
-                <div style="font-size:14px; color:#e74c3c; margin-top:5px;">🔴 ${count} pending</div>
+                <div style="font-size:14px; color:#e74c3c; margin-top:5px;">${statusHtml}</div>
             </div>
         `;
     }
@@ -90,3 +94,5 @@
     // Refresh pending card every 5 seconds
     setInterval(loadPendingCard, 5000);
 </script>
+</body>
+</html>

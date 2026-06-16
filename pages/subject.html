@@ -76,12 +76,14 @@
         async function resolveSubjectTitle() {
             let displayName = subjectNames[subject];
             if (!displayName) {
-                const { data } = await supabaseClient
-                    .from("subjects")
-                    .select("name")
-                    .eq("subject_id", subject)
-                    .eq("semester", semester)
-                    .single();
+                const { data } = await withRetry(() =>
+                    supabaseClient
+                        .from("subjects")
+                        .select("name")
+                        .eq("subject_id", subject)
+                        .eq("semester", semester)
+                        .single()
+                );
                 displayName = data?.name || subject;
             }
             document.getElementById("subject-title").textContent = `${displayName} (Semester ${semester})`;
@@ -112,13 +114,36 @@
                 grid.appendChild(a);
             });
 
-            // Custom folders from Supabase
-            const { data: customFolders } = await supabaseClient
-                .from("folders")
-                .select("*")
-                .eq("semester", semester)
-                .eq("subject", subject)
-                .order("created_at", { ascending: true });
+            // Loading indicator while custom folders are fetched, so a slow
+            // connection looks like "loading" instead of "stuck/broken"
+            const loadingMsg = document.createElement("p");
+            loadingMsg.style.cssText = "grid-column:1/-1; text-align:center; color:#888;";
+            loadingMsg.textContent = "⏳ Loading additional folders...";
+            grid.appendChild(loadingMsg);
+
+            // Custom folders from Supabase (retried automatically on flaky connections)
+            const { data: customFolders, error } = await withRetry(() =>
+                supabaseClient
+                    .from("folders")
+                    .select("*")
+                    .eq("semester", semester)
+                    .eq("subject", subject)
+                    .order("created_at", { ascending: true })
+            );
+
+            loadingMsg.remove();
+
+            if (error) {
+                const errMsg = document.createElement("p");
+                errMsg.style.cssText = "grid-column:1/-1; text-align:center; color:#e74c3c;";
+                errMsg.innerHTML = `⚠️ Couldn't load additional folders. <a href="#" id="retry-folders">Retry</a>`;
+                grid.appendChild(errMsg);
+                document.getElementById("retry-folders").onclick = function (e) {
+                    e.preventDefault();
+                    loadFolders();
+                };
+                return;
+            }
 
             if (customFolders && customFolders.length > 0) {
                 customFolders.forEach(folder => {
@@ -141,17 +166,19 @@
             const { data: sessionData } = await supabaseClient.auth.getSession();
             const user = sessionData.session?.user;
 
-            const { error } = await supabaseClient
-                .from("folders")
-                .insert({
-                    folder_name: name.trim(),
-                    semester: semester,
-                    subject: subject,
-                    created_by: user?.email || "anonymous"
-                });
+            const { error } = await withRetry(() =>
+                supabaseClient
+                    .from("folders")
+                    .insert({
+                        folder_name: name.trim(),
+                        semester: semester,
+                        subject: subject,
+                        created_by: user?.email || "anonymous"
+                    })
+            );
 
             if (error) {
-                alert("Error creating folder: " + error.message);
+                alert("Error creating folder: " + friendlyErrorMessage(error));
                 return;
             }
 

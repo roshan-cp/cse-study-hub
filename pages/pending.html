@@ -59,13 +59,24 @@
         });
 
         async function loadPendingFolders() {
-            const { data, error } = await supabaseClient
-                .from("links")
-                .select("semester, subject, category, id")
-                .eq("status", "pending");
+            const { data, error } = await withRetry(() =>
+                supabaseClient
+                    .from("links")
+                    .select("semester, subject, category, id")
+                    .eq("status", "pending")
+            );
 
             const foldersDiv = document.getElementById("pending-folders");
             foldersDiv.innerHTML = "";
+
+            if (error) {
+                foldersDiv.innerHTML = `<p class="empty-message">⚠️ ${friendlyErrorMessage(error)} <a href="#" id="retry-pending-folders">Retry</a></p>`;
+                document.getElementById("retry-pending-folders").onclick = function (e) {
+                    e.preventDefault();
+                    loadPendingFolders();
+                };
+                return;
+            }
 
             if (!data || data.length === 0) {
                 foldersDiv.innerHTML = `<p class="empty-message">No pending requests!</p>`;
@@ -97,15 +108,26 @@
         }
 
         async function loadPendingLinks() {
-            const { data, error } = await supabaseClient
-                .from("links")
-                .select("*")
-                .eq("status", "pending")
-                .order("created_at", { ascending: false });
+            const { data, error } = await withRetry(() =>
+                supabaseClient
+                    .from("links")
+                    .select("*")
+                    .eq("status", "pending")
+                    .order("created_at", { ascending: false })
+            );
 
             const list = document.getElementById("links-list");
 
-            if (error || !data || data.length === 0) {
+            if (error) {
+                list.innerHTML = `<p>⚠️ ${friendlyErrorMessage(error)} <a href="#" id="retry-pending-links">Retry</a></p>`;
+                document.getElementById("retry-pending-links").onclick = function (e) {
+                    e.preventDefault();
+                    loadPendingLinks();
+                };
+                return;
+            }
+
+            if (!data || data.length === 0) {
                 list.innerHTML = "<p>No pending links.</p>";
                 return;
             }
@@ -133,14 +155,26 @@
         }
 
         async function approve(id) {
-            await supabaseClient.from("links").update({ status: "approved" }).eq("id", id);
+            const { error } = await withRetry(() =>
+                supabaseClient.from("links").update({ status: "approved" }).eq("id", id)
+            );
+            if (error) {
+                alert("Error approving link: " + friendlyErrorMessage(error));
+                return;
+            }
             alert("Link approved!");
             loadPendingFolders();
             loadPendingLinks();
         }
 
         async function reject(id) {
-            await supabaseClient.from("links").delete().eq("id", id);
+            const { error } = await withRetry(() =>
+                supabaseClient.from("links").delete().eq("id", id)
+            );
+            if (error) {
+                alert("Error rejecting link: " + friendlyErrorMessage(error));
+                return;
+            }
             alert("Link rejected!");
             loadPendingFolders();
             loadPendingLinks();
