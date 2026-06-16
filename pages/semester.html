@@ -20,18 +20,129 @@
         const semester = params.get("semester");
 
         const defaultSubjects = {
-            4: [
-                { name: "COA", id: "coa", type: "theory" },
-                { name: "DBMS", id: "dbms", type: "theory" },
-                { name: "DBMS Lab", id: "dbmslab", type: "lab" },
-                { name: "Ethics", id: "ethics", type: "theory" },
-                { name: "Mathematics", id: "maths", type: "theory" },
-                { name: "Operating System", id: "os", type: "theory" },
-                { name: "OS Lab", id: "oslab", type: "lab" },
-                { name: "Software Engineering", id: "se", type: "theory" }
-            ]
-        };
+             1: [
+                { name: "Mathematics for Information Science-I (GAMAT101)", id: "maths1", type: "theory" },
+                { name: "Physics for Information Science (GAPHT121)", id: "physics", type: "theory" },
+                { name: "Engineering Graphics and Computer Aided Drawing (GMEST103)", id: "egcad", type: "theory" },
+                { name: "Introduction to Electrical and Electronics Engineering (GMEST104)", id: "ieee", type: "theory" },
+                { name: "Algorithmic Thinking with Python (UCEST105)", id: "python", type: "theory" },
+                { name: "Life Skills and Professional Communication (UCHLT128)", id: "lifeskills", type: "theory" },
+                { name: "Basic Electrical and Electronics Engineering Workshop (GXESL105)", id: "eee_lab", type: "lab" },
+                { name: "Library (LIB)", id: "library", type: "activity" },
+                { name: "Remedial/Placement Training/Special Interest Group (RPT/SIG)", id: "rptsig", type: "activity" }
+            ],
+             2: [
+                { name: "Mathematics for Information Science - 2 (GAMAT201)", id: "maths2", type: "theory" },
+                { name: "Chemistry for Information Science / Electrical Science (GXCYT122)", id: "chemistry", type: "theory" },
+                { name: "Foundations of Computing: From Hardware Essentials to Web Design (GXEST203)", id: "foc", type: "theory" },
+                { name: "Programming in C (GXEST204)", id: "cprogramming", type: "theory" },
+                { name: "Discrete Mathematics (PCCST205)", id: "discretemaths", type: "theory" },
+                { name: "Engineering Entrepreneurship & IPR (UCEST206)", id: "entrepreneurship", type: "theory" },
+                { name: "Health and Wellness (UCHWT127)", id: "health", type: "activity" },
+                { name: "IT Workshop (GXESL208)", id: "itworkshop", type: "lab" },
+                { name: "Skill Enhancement Course: Digital 101 (UCSEM129)", id: "digital101", type: "activity" }
+            ],
+           
+            3: [
+                { name: "Mathematics for Computer and Information Science-3 (GAMAT301)", id: "maths3", type: "theory" },
+                { name: "Theory of Computation (PCCST302)", id: "toc", type: "theory" },
+                { name: "Data Structures and Algorithms (PCCST303)", id: "dsa", type: "theory" },
+                { name: "Object Oriented Programming (PBCST304)", id: "oop", type: "theory" },
+                { name: "Digital Electronics and Logic Design (GAEST305)", id: "deld", type: "theory" },
+                { name: "Economics for Engineers (UCHUT346)", id: "economics", type: "theory" },
+                { name: "Engineering Ethics and Sustainable Development (UCHUT347)", id: "ethics", type: "theory" },
+                { name: "Data Structures Lab (PCCSL307)", id: "dsalab", type: "lab" }
+            ],
 
+            4: [
+                { name: "Mathematics for Computer and Information Science-4 (GAMAT401)", id: "maths4", type: "theory" },
+                { name: "Database Management Systems (PCCST402)", id: "dbms", type: "theory" },
+                { name: "Operating Systems (PCCST403)", id: "os", type: "theory" },
+                { name: "Computer Organization and Architecture (PBCST404)", id: "coa", type: "theory" },
+                { name: "Software Engineering (PECST411)", id: "se", type: "theory" },
+                { name: "Cyber Ethics, Privacy and Legal Issues (PECST419)", id: "cyberethics", type: "theory" },
+                { name: "DBMS Lab (PCCSL408)", id: "dbmslab", type: "lab" },
+                { name: "Operating Systems Lab (PCCSL407)", id: "oslab", type: "lab" }
+            ],
+
+            5: [
+                { name: "Computer Networks (PCCST501)", id: "cn", type: "theory" },
+                { name: "Design and Analysis of Algorithms (PCCST502)", id: "daa", type: "theory" },
+                { name: "Machine Learning (PCCST503)", id: "ml", type: "theory" },
+                { name: "Microcontrollers (PBCST504)", id: "microcontrollers", type: "theory" },
+                { name: "Software Project Management (PECST521)", id: "spm", type: "theory" },
+                { name: "Artificial Intelligence (PECST522)", id: "ai", type: "theory" },
+                { name: "Networks Lab (PCCSL507)", id: "networkslab", type: "lab" }
+            ],
+
+            6: [
+                { name: "Compiler Design (PCCST601)", id: "cd", type: "theory" },
+                { name: "Advanced Computing Systems (PCCST602)", id: "acs", type: "theory" },
+                { name: "Software Testing (PECST631)", id: "st", type: "theory" },
+                { name: "Deep Learning (PECST632)", id: "dl", type: "theory" },
+
+                { name: "Wireless & Mobile Computing (PECST633)", id: "wmc", type: "theory" },
+                { name: "Advanced Database Systems (PECST634)", id: "ads", type: "theory" },
+                { name: "Cloud Computing (PECST635)", id: "cloud", type: "theory" },
+                { name: "Digital Image Processing (PECST636)", id: "dip", type: "theory" },
+
+                { name: "Fundamentals of Cryptography (PECST637)", id: "cryptography", type: "theory" },
+                { name: "Quantum Computing (PECST638)", id: "qc", type: "theory" },
+                { name: "Randomized Algorithms (PECST639)", id: "ra", type: "theory" },
+
+                { name: "Fundamentals of Cyber Security (PBCST604)", id: "cybersecurity", type: "theory" },
+                { name: "Data Communication (OECST612)", id: "datacomm", type: "theory" },
+                { name: "Mobile Application Development (PECST695)", id: "mad", type: "theory" },
+
+                { name: "Systems Lab (PCCSL607)", id: "systemslab", type: "lab" }
+            ],
+
+            7: [
+                { name: "Formal Methods in Software Engineering (PECST741)", id: "fmse", type: "theory" },
+                { name: "Web Programming (PECST742)", id: "webprog", type: "theory" },
+                { name: "Bioinformatics (PECST743)", id: "bioinfo", type: "theory" },
+                { name: "Information Security (PECST744)", id: "infosec", type: "theory" },
+
+                { name: "Computer Vision (PECST745)", id: "cv", type: "theory" },
+                { name: "Embedded Systems (PECST746)", id: "embedded", type: "theory" },
+                { name: "Blockchain and Cryptocurrencies (PECST747)", id: "blockchain", type: "theory" },
+                { name: "Real Time Systems (PECST748)", id: "rts", type: "theory" },
+                { name: "Approximation Algorithms (PECST749)", id: "approxalgo", type: "theory" },
+
+                { name: "Advanced Computer Networks (PECST751)", id: "acn", type: "theory" },
+                { name: "Responsible Artificial Intelligence (PECST752)", id: "rai", type: "theory" },
+                { name: "Fuzzy Systems (PECST753)", id: "fuzzy", type: "theory" },
+                { name: "Digital Forensics (PECST754)", id: "forensics", type: "theory" },
+                { name: "Internet of Things (PECST755)", id: "iot", type: "theory" },
+
+                { name: "Game Theory and Mechanism Design (PECST756)", id: "gtmd", type: "theory" },
+                { name: "High Performance Computing (PECST757)", id: "hpc", type: "theory" },
+                { name: "Programming Languages (PECST758)", id: "pl", type: "theory" },
+                { name: "Parallel Algorithms (PECST759)", id: "parallel", type: "theory" },
+
+                { name: "Algorithms for Data Science (PECST785)", id: "adsci", type: "theory" },
+                { name: "Topics in Theoretical CS (PECST795)", id: "ttcs", type: "theory" }
+            ],
+
+            8: [
+                { name: "Software Architectures (PECST861)", id: "sa", type: "theory" },
+                { name: "Natural Language Processing (PECST862)", id: "nlp", type: "theory" },
+                { name: "Topics in Security (PECST863)", id: "security", type: "theory" },
+                { name: "Computational Complexity (PECST864)", id: "complexity", type: "theory" },
+
+                { name: "Next Generation Interaction Design (PECST865)", id: "ngid", type: "theory" },
+                { name: "Speech and Audio Processing (PECST866)", id: "sap", type: "theory" },
+                { name: "Storage Systems (PECST867)", id: "storage", type: "theory" },
+                { name: "Prompt Engineering (PECST868)", id: "prompteng", type: "theory" },
+                { name: "Computational Number Theory (PECST869)", id: "cnt", type: "theory" },
+
+                { name: "Introduction to Algorithm (OECST831)", id: "introalgo", type: "theory" },
+                { name: "Web Programming (OECST832)", id: "webprog2", type: "theory" },
+                { name: "Software Testing (OECST833)", id: "stesting", type: "theory" },
+                { name: "Internet of Things (OECST834)", id: "iot2", type: "theory" },
+                { name: "Computer Graphics (OECST835)", id: "cg", type: "theory" }
+            ]
+            };
         async function loadNavbar() {
             const { data } = await supabaseClient.auth.getSession();
             const user = data.session?.user;
