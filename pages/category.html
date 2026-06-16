@@ -122,16 +122,30 @@
             const linksList = document.getElementById("links-list");
             linksList.innerHTML = `<p style="color: blue;">⏳ Loading content...</p>`;
 
-            const { data, error } = await withRetry(() =>
-                supabaseClient
-                    .from("links")
-                    .select("*")
-                    .eq("semester", semester)
-                    .eq("subject", subject)
-                    .eq("category", category)
-                    .eq("status", "approved")
-                    .order("created_at", { ascending: true })
-            );
+       const { data, error } = await withRetry(() =>
+    supabaseClient
+        .from("links")
+        .select("*")
+        .eq("semester", semester)
+        .eq("subject", subject)
+        .eq("category", category)
+        .eq("status", "approved")
+);
+
+if (data) {
+    data.sort((a, b) => {
+        const aMatch = a.module_name.match(/\d+/);
+        const bMatch = b.module_name.match(/\d+/);
+
+        if (aMatch && bMatch) {
+            return parseInt(aMatch[0]) - parseInt(bMatch[0]);
+        }
+
+        return a.module_name.localeCompare(b.module_name);
+    });
+}
+
+linksList.innerHTML = "";
 
             linksList.innerHTML = "";
 
