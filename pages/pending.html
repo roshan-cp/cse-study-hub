@@ -1,21 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pending Requests</title>
     <link rel="stylesheet" href="../style.css">
 </head>
+
 <body>
     <nav id="navbar"></nav>
     <div class="container">
         <h1>Pending Requests</h1>
-        
+
         <h2>📋 Pending Requests by Folder</h2>
         <div id="pending-folders" class="subject-grid"></div>
 
         <h2 style="margin-top: 30px;">⏳ Pending Links to Approve</h2>
-        <div id="links-list"><p>Loading...</p></div>
+        <h2 style="margin-top:30px;">🏆 Pending Certificate Links</h2>
+        <div id="certificate-links">
+            <p>Loading...</p>
+        </div>
+        <div id="links-list">
+            <p>Loading...</p>
+        </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../supabase-config.js"></script>
@@ -26,7 +34,7 @@
             const { data } = await supabaseClient.auth.getSession();
             const user = data.session?.user;
             const navbar = document.getElementById("navbar");
-            
+
             if (user) {
                 navbar.innerHTML = `
                     <div class="nav-left">
@@ -56,6 +64,7 @@
             loadNavbar();
             loadPendingFolders();
             loadPendingLinks();
+            loadPendingCertificates();
         });
 
         async function loadPendingFolders() {
@@ -95,7 +104,7 @@
             Object.keys(folderGroups).forEach(key => {
                 const count = folderGroups[key].length;
                 const [sem, subj, cat] = key.split("-");
-                
+
                 const card = document.createElement("div");
                 card.className = "pending-card";
                 card.innerHTML = `
@@ -153,7 +162,75 @@
                 list.appendChild(div);
             });
         }
+        async function loadPendingCertificates() {
 
+            const list = document.getElementById("certificate-links");
+
+            const { data, error } = await withRetry(() =>
+                supabaseClient
+                    .from("certificate_links")
+                    .select(`
+                *,
+                certificates(folder_name)
+            `)
+                    .eq("status", "pending")
+                    .order("created_at", { ascending: false })
+            );
+
+            if (error) {
+                list.innerHTML = `<p>⚠️ ${friendlyErrorMessage(error)}</p>`;
+                return;
+            }
+
+            if (!data || data.length === 0) {
+                list.innerHTML = "<p>No pending certificate links.</p>";
+                return;
+            }
+
+            list.innerHTML = "";
+
+            data.forEach(link => {
+
+                const div = document.createElement("div");
+                div.className = "note-item";
+                div.style.flexDirection = "column";
+                div.style.alignItems = "flex-start";
+
+                div.innerHTML = `
+            <div style="width:100%;margin-bottom:10px;">
+                <p style="margin:0;font-weight:bold;">${link.title}</p>
+                <p style="margin:5px 0;">Folder: ${link.certificates?.folder_name ?? "Unknown"}</p>
+                <p style="margin:5px 0;">Uploaded by: ${link.uploaded_by}</p>
+            </div>
+
+            <div style="display:flex;gap:10px;width:100%;">
+
+                <a href="${link.link}"
+                   target="_blank"
+                   style="flex:1;text-align:center;background:#3498db;color:white;padding:8px;border-radius:4px;text-decoration:none;">
+                    👁 Preview
+                </a>
+
+                <button
+                    onclick="approveCertificate('${link.id}')"
+                    style="flex:1;background:#27ae60;color:white;border:none;padding:8px;border-radius:4px;cursor:pointer;">
+                    ✅ Approve
+                </button>
+
+                <button
+                    onclick="rejectCertificate('${link.id}')"
+                    style="flex:1;background:#e74c3c;color:white;border:none;padding:8px;border-radius:4px;cursor:pointer;">
+                    ❌ Reject
+                </button>
+
+            </div>
+        `;
+
+                list.appendChild(div);
+
+            });
+
+        }
         async function approve(id) {
             const { error } = await withRetry(() =>
                 supabaseClient.from("links").update({ status: "approved" }).eq("id", id)
@@ -179,6 +256,49 @@
             loadPendingFolders();
             loadPendingLinks();
         }
+        async function approveCertificate(id) {
+
+            const { error } = await withRetry(() =>
+                supabaseClient
+                    .from("certificate_links")
+                    .update({
+                        status: "approved"
+                    })
+                    .eq("id", id)
+            );
+
+            if (error) {
+                alert("Error approving certificate: " + friendlyErrorMessage(error));
+                return;
+            }
+
+            alert("Certificate approved!");
+
+            loadPendingCertificates();
+
+        }
+        async function rejectCertificate(id) {
+
+            if (!confirm("Reject this certificate?")) return;
+
+            const { error } = await withRetry(() =>
+                supabaseClient
+                    .from("certificate_links")
+                    .delete()
+                    .eq("id", id)
+            );
+
+            if (error) {
+                alert("Error rejecting certificate: " + friendlyErrorMessage(error));
+                return;
+            }
+
+            alert("Certificate rejected!");
+
+            loadPendingCertificates();
+
+        }
     </script>
 </body>
+
 </html>

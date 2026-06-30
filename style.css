@@ -192,6 +192,52 @@ nav {
     background: #c0392b;
 }
 
+.rename-btn {
+    background: #f0f0f0;
+    color: #555;
+    border: 1px solid #ccc;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    margin-right: 6px;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.rename-btn:hover {
+    background: #3498db;
+    color: white;
+    border-color: #3498db;
+}
+
+.rename-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.note-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.module-card {
+    background: linear-gradient(135deg, #f8f9ff, #eef2ff);
+    border: 1px solid #c7d2fe;
+    color: #3730a3;
+    font-size: 18px;
+    transition: background 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
+}
+
+.module-card:hover {
+    background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
+    color: white !important;
+    border-color: #4f46e5 !important;
+    box-shadow: 0 8px 24px rgba(79,70,229,0.3);
+    transform: translateY(-2px);
+}
+
 /* Notes and Items */
 .note-item {
     background: #f8f9fa;

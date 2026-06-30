@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificate Folder</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <nav id="navbar"></nav>
+    <div class="container">
+        <h1 id="folder-title">Loading...</h1>
+        <div id="folder-info"></div>
+        <div id="add-link-section"></div>
+        <div id="links-list"></div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../supabase-config.js"></script>
+    <script>
+        const ADMIN_EMAIL = "roshancp.in@gmail.com";
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get("id");
+        const name = params.get("name");
+
+        async function loadNavbar() {
+            const { data } = await supabaseClient.auth.getSession();
+            const user = data.session?.user;
+            const navbar = document.getElementById("navbar");
+
+            if (user) {
+                navbar.innerHTML = `
+                    <div class="nav-left">
+                        <a href="../index.html" class="nav-brand">CSE Study Hub</a>
+                        <span class="user-name">Hi, ${user.email.split("@")[0]}</span>
+                    </div>
+                    <button onclick="logout()" class="logout-btn">Logout</button>
+                `;
+            } else {
+                navbar.innerHTML = `
+                    <a href="../index.html" class="nav-brand">CSE Study Hub</a>
+                    <a href="login.html" class="nav-login">Login</a>
+                `;
+            }
+        }
+
+        async function logout() {
+            await supabaseClient.auth.signOut();
+            window.location.reload();
+        }
+
+        async function loadFolderInfo() {
+            const { data: sessionData } = await supabaseClient.auth.getSession();
+            const user = sessionData.session?.user;
+            const isAdmin = user?.email === ADMIN_EMAIL;
+
+            const { data: folder, error } = await withRetry(() =>
+                supabaseClient
+                    .from("certificates")
+                    .select("*")
+                    .eq("id", id)
+                    .single()
+            );
+
+            if (error || !folder) return;
+
+            const folderInfo = document.getElementById("folder-info");
+            const canDeleteFolder = isAdmin || (user?.email === folder.created_by);
+
+            folderInfo.innerHTML = `
+                <div style="background:#f0f0f0; padding:15px; border-radius:8px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <p style="margin:0;">Created by: <strong>${folder.created_by}</strong></p>
+                        <p style="margin:5px 0 0 0; font-size:12px; color:#666;">Folder: ${folder.folder_name}</p>
+                    </div>
+                    ${canDeleteFolder ? `<button onclick="deleteFolder('${folder.id}')" style="background:#e74c3c; color:white; border:none; padding:10px 15px; border-radius:6px; cursor:pointer;">🗑️ Delete Folder</button>` : ""}
+                </div>
+            `;
+        }
+
+        async function loadLinks() {
+            const { data: sessionData } = await supabaseClient.auth.getSession();
+            const user = sessionData.session?.user;
+            const isAdmin = user?.email === ADMIN_EMAIL;
+
+            // Add Link button
+            const addLinkSection = document.getElementById("add-link-section");
+            addLinkSection.innerHTML = "";
+
+            const addBtn = document.createElement("button");
+            addBtn.className = "add-link-btn";
+            addBtn.textContent = "➕ Add Link";
+            addBtn.onclick = function () {
+                if (!user) { window.location.href = "login.html"; return; }
+                addLink(user.email);
+            };
+            addLinkSection.appendChild(addBtn);
+
+            // Load links
+            const linksList = document.getElementById("links-list");
+            linksList.innerHTML = "";
+
+            const loadingMsg = document.createElement("p");
+            loadingMsg.style.cssText = "color: #3498db; text-align:center;";
+            loadingMsg.textContent = "⏳ Loading links...";
+            linksList.appendChild(loadingMsg);
+
+            const { data: links, error } = await withRetry(() =>
+                supabaseClient
+                    .from("certificate_links")
+                    .select("*")
+                    .eq("cert_id", id)
+                    .eq("status", "approved")
+                    .order("created_at", { ascending: true })
+            );
+
+            loadingMsg.remove();
+
+            if (error) {
+                linksList.insertAdjacentHTML("beforeend", `<p class="empty-message">⚠️ ${friendlyErrorMessage(error)} <a href="#" id="retry-links">Retry</a></p>`);
+                document.getElementById("retry-links").onclick = function (e) {
+                    e.preventDefault(); loadLinks();
+                };
+                return;
+            }
+
+            if (!links || links.length === 0) {
+                linksList.insertAdjacentHTML("beforeend", `<p class="empty-message">No links yet. Click '➕ Add Link' to add one!</p>`);
+                return;
+            }
+
+            // Create link items
+            links.forEach(link => {
+                const div = document.createElement("div");
+                div.className = "note-item";
+                const canDelete = isAdmin || (user?.email === link.uploaded_by);
+
+                div.innerHTML = `
+                    <a href="${link.link}" target="_blank" style="flex:1; display:block;">📄 ${link.title}</a>
+                    <div class="note-actions">
+                        ${isAdmin ? `<button class="rename-btn" onclick="renameLink('${link.id}', this)" title="Rename">✏️</button>` : ""}
+                        ${canDelete && user ? `<button class="delete-btn" onclick="deleteLink('${link.id}')">🗑️</button>` : ""}
+                    </div>
+                `;
+                linksList.appendChild(div);
+            });
+        }
+
+        async function addLink(userEmail) {
+            const title = prompt("Link title (e.g., AWS Certificate):");
+            if (!title || title.trim() === "") return;
+
+            const url = prompt("Paste the URL:");
+            if (!url || url.trim() === "") return;
+
+            const { error } = await withRetry(() =>
+                supabaseClient
+                    .from("certificate_links")
+                    .insert({
+                        title: title.trim(),
+                        link: url.trim(),
+                        cert_id: id,
+                        uploaded_by: userEmail,
+                        status: "pending"
+                    })
+            );
+
+            if (error) {
+                alert("Error adding link: " + friendlyErrorMessage(error));
+                return;
+            }
+
+            alert("Link submitted! It will appear after admin approval.");
+            loadLinks();
+        }
+
+        async function renameLink(linkId, btn) {
+            const noteItem = btn.closest(".note-item");
+            const anchor = noteItem.querySelector("a");
+            const currentName = anchor.textContent.replace(/^📄\s*/, "").trim();
+
+            const newName = prompt("Enter new title:", currentName);
+            if (!newName || newName.trim() === "" || newName.trim() === currentName) return;
+
+            btn.disabled = true;
+            btn.textContent = "⏳";
+
+            const { error } = await withRetry(() =>
+                supabaseClient
+                    .from("certificate_links")
+                    .update({ title: newName.trim() })
+                    .eq("id", linkId)
+            );
+
+            if (error) {
+                alert("Error renaming: " + friendlyErrorMessage(error));
+                btn.disabled = false;
+                btn.textContent = "✏️";
+                return;
+            }
+
+            anchor.textContent = `📄 ${newName.trim()}`;
+            btn.disabled = false;
+            btn.textContent = "✏️";
+        }
+
+        async function deleteLink(linkId) {
+            if (!confirm("Delete this link?")) return;
+            const { error } = await withRetry(() =>
+                supabaseClient.from("certificate_links").delete().eq("id", linkId)
+            );
+            if (error) { alert("Error deleting link: " + friendlyErrorMessage(error)); return; }
+            loadLinks();
+        }
+
+        async function deleteFolder(folderId) {
+            if (!confirm("Delete this folder and all its links?")) return;
+            const { error } = await withRetry(() =>
+                supabaseClient.from("certificates").delete().eq("id", folderId)
+            );
+            if (error) { alert("Error deleting folder: " + friendlyErrorMessage(error)); return; }
+            await withRetry(() =>
+                supabaseClient.from("certificate_links").delete().eq("cert_id", folderId)
+            );
+            window.location.href = `certificates.html`;
+        }
+
+        document.getElementById("folder-title").textContent = `📁 ${decodeURIComponent(name)}`;
+        loadNavbar();
+        loadFolderInfo();
+        loadLinks();
+    </script>
+</body>
+</html>

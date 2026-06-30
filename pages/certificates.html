@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificates</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+
+<body>
+    <nav id="navbar"></nav>
+    <div class="container">
+        <h1>🏆 Certificates</h1>
+        <div id="folders-grid" class="subject-grid"></div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../supabase-config.js"></script>
+    <script>
+        const ADMIN_EMAIL = "roshancp.in@gmail.com";
+
+        async function loadNavbar() {
+            const { data } = await supabaseClient.auth.getSession();
+            const user = data.session?.user;
+            const navbar = document.getElementById("navbar");
+
+            if (user) {
+                navbar.innerHTML = `
+                    <div class="nav-left">
+                        <a href="../index.html" class="nav-brand">CSE Study Hub</a>
+                        <span class="user-name">Hi, ${user.email.split("@")[0]}</span>
+                    </div>
+                    <button onclick="logout()" class="logout-btn">Logout</button>
+                `;
+            } else {
+                navbar.innerHTML = `
+                    <a href="../index.html" class="nav-brand">CSE Study Hub</a>
+                    <a href="login.html" class="nav-login">Login</a>
+                `;
+            }
+        }
+
+        async function logout() {
+            await supabaseClient.auth.signOut();
+            window.location.reload();
+        }
+
+        async function loadFolders() {
+            const { data: sessionData } = await supabaseClient.auth.getSession();
+            const user = sessionData.session?.user;
+            const isAdmin = user?.email === ADMIN_EMAIL;
+
+            const grid = document.getElementById("folders-grid");
+            grid.innerHTML = "";
+
+            // Add Folder button
+            const addBtn = document.createElement("div");
+            addBtn.className = "card add-folder-card";
+            addBtn.style.cursor = "pointer";
+            addBtn.innerHTML = "➕ Add Folder";
+            addBtn.onclick = function () { addFolder(); };
+            grid.appendChild(addBtn);
+
+            // Loading indicator
+            const loadingMsg = document.createElement("p");
+            loadingMsg.style.cssText = "grid-column:1/-1; text-align:center; color:#888;";
+            loadingMsg.textContent = "⏳ Loading folders...";
+            grid.appendChild(loadingMsg);
+
+            // Get all certificate folders from Supabase
+            const { data: folders, error } = await withRetry(() =>
+                supabaseClient
+                    .from("certificates")
+                    .select("*")
+                    .order("created_at", { ascending: true })
+            );
+
+            loadingMsg.remove();
+
+            if (error) {
+                const errMsg = document.createElement("p");
+                errMsg.style.cssText = "grid-column:1/-1; text-align:center; color:#e74c3c;";
+                errMsg.innerHTML = `⚠️ Couldn't load folders. <a href="#" id="retry-folders">Retry</a>`;
+                grid.appendChild(errMsg);
+                document.getElementById("retry-folders").onclick = function (e) {
+                    e.preventDefault();
+                    loadFolders();
+                };
+                return;
+            }
+
+            if (!folders || folders.length === 0) {
+                const msg = document.createElement("p");
+                msg.style.cssText = "grid-column:1/-1; text-align:center; color:#888;";
+                msg.textContent = "No folders yet. Click 'Add Folder' to create one!";
+                grid.appendChild(msg);
+                return;
+            }
+
+            // Create folder cards
+            folders.forEach(folder => {
+                const a = document.createElement("a");
+                a.href = `certificate-detail.html?id=${folder.id}&name=${encodeURIComponent(folder.folder_name)}`;
+                a.className = "card";
+                a.textContent = `📁 ${folder.folder_name}`;
+
+                // Add rename button for admins
+                if (isAdmin) {
+                    const btn = document.createElement("button");
+                    btn.className = "rename-btn";
+                    btn.innerHTML = "✏️";
+                    btn.onclick = function (e) {
+                        e.preventDefault();
+                        renameFolder(folder.id, folder.folder_name);
+                    };
+                    a.appendChild(btn);
+                }
+
+                grid.appendChild(a);
+            });
+        }
+
+        async function addFolder() {
+            const name = prompt("Enter folder name (e.g., automata, coa):");
+            if (!name || name.trim() === "") {
+                alert("Folder name cannot be empty!");
+                return;
+            }
+
+            const { data: sessionData } = await supabaseClient.auth.getSession();
+            const user = sessionData.session?.user;
+
+            const { error } = await withRetry(() =>
+                supabaseClient
+                    .from("certificates")
+                    .insert({
+                        folder_name: name.trim(),
+                        created_by: user?.email || "anonymous"
+                    })
+            );
+
+            if (error) {
+                alert("Error creating folder: " + friendlyErrorMessage(error));
+                return;
+            }
+
+            alert("Folder created!");
+            loadFolders();
+        }
+
+        async function renameFolder(id, oldName) {
+            const newName = prompt("Enter new folder name:", oldName);
+            if (!newName || newName.trim() === "" || newName.trim() === oldName) {
+                return;
+            }
+
+            const { error } = await withRetry(() =>
+                supabaseClient
+                    .from("certificates")
+                    .update({ folder_name: newName.trim() })
+                    .eq("id", id)
+            );
+
+            if (error) {
+                alert("Error renaming folder: " + friendlyErrorMessage(error));
+                return;
+            }
+
+            alert("Folder renamed!");
+            loadFolders();
+        }
+
+        loadNavbar();
+        loadFolders();
+    </script>
+</body>
+
+</html>

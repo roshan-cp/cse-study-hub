@@ -24,6 +24,7 @@
         const category = params.get("category");
         const folderName = params.get("folderName");
         const isDefault = params.get("isDefault") === "true";
+        const moduleParam = params.get("module"); // e.g. "module_1"
 
         const categoryNames = {
             notes: "Notes",
@@ -36,6 +37,22 @@
             experiment_answer_key: "Experiment Answer Key",
             questions: "Questions"
         };
+
+        const moduleLabels = {
+            module_1: "Module 1",
+            module_2: "Module 2",
+            module_3: "Module 3",
+            module_4: "Module 4"
+        };
+
+        // Set page title
+        if (moduleParam && moduleLabels[moduleParam]) {
+            document.getElementById("category-title").textContent =
+                `📁 ${moduleLabels[moduleParam]} — ${isDefault ? categoryNames[category] : folderName}`;
+        } else {
+            document.getElementById("category-title").textContent =
+                isDefault ? `📁 ${categoryNames[category]}` : `📁 ${folderName}`;
+        }
 
         async function loadNavbar() {
             const { data } = await supabaseClient.auth.getSession();
@@ -62,9 +79,6 @@
             await supabaseClient.auth.signOut();
             window.location.reload();
         }
-
-        document.getElementById("category-title").textContent =
-            isDefault ? `📁 ${categoryNames[category]}` : `📁 ${folderName}`;
 
         async function loadFolderInfo() {
             if (isDefault) return;
@@ -97,12 +111,36 @@
             `;
         }
 
+        // ─── MODULE SUB-FOLDER VIEW (Notes without a module selected) ────────
+        function renderModuleSubFolders() {
+            const linksList = document.getElementById("links-list");
+            linksList.innerHTML = "";
+
+            // Back navigation not needed here — we're at the top level of Notes
+
+            const grid = document.createElement("div");
+            grid.className = "subject-grid";
+
+            const baseUrl = `category.html?semester=${semester}&subject=${subject}&category=${category}&isDefault=${isDefault}&folderName=${encodeURIComponent(folderName || "")}`;
+
+            [1, 2, 3, 4].forEach(num => {
+                const a = document.createElement("a");
+                a.href = `${baseUrl}&module=module_${num}`;
+                a.className = "card module-card";
+                a.textContent = `📂 Module ${num}`;
+                grid.appendChild(a);
+            });
+
+            linksList.appendChild(grid);
+        }
+
+        // ─── LINKS VIEW ───────────────────────────────────────────────────────
         async function loadLinks() {
             const { data: sessionData } = await supabaseClient.auth.getSession();
             const user = sessionData.session?.user;
             const isAdmin = user?.email === ADMIN_EMAIL;
 
-            // Add Link button — login required
+            // Add Link button
             const addLinkSection = document.getElementById("add-link-section");
             addLinkSection.innerHTML = "";
 
@@ -110,77 +148,139 @@
             addBtn.className = "add-link-btn";
             addBtn.textContent = "➕ Add Link";
             addBtn.onclick = function () {
-                if (!user) {
-                    window.location.href = "login.html";
-                    return;
-                }
+                if (!user) { window.location.href = "login.html"; return; }
                 addLink(user.email);
             };
             addLinkSection.appendChild(addBtn);
 
-            // Load approved links
+            // ── If Notes category and no module selected → show module cards ──
+            if (category === "notes" && isDefault && !moduleParam) {
+                renderModuleSubFolders();
+                return;
+            }
+
+            // ── Otherwise, load files ─────────────────────────────────────────
             const linksList = document.getElementById("links-list");
-            linksList.innerHTML = `<p style="color: blue;">⏳ Loading content...</p>`;
 
-       const { data, error } = await withRetry(() =>
-    supabaseClient
-        .from("links")
-        .select("*")
-        .eq("semester", semester)
-        .eq("subject", subject)
-        .eq("category", category)
-        .eq("status", "approved")
-);
+            // Back button for module view
+            if (moduleParam) {
+                const backUrl = `category.html?semester=${semester}&subject=${subject}&category=${category}&isDefault=${isDefault}&folderName=${encodeURIComponent(folderName || "")}`;
+                const backBtn = document.createElement("a");
+                backBtn.href = backUrl;
+                backBtn.className = "back-btn";
+                backBtn.textContent = "← Back to Modules";
+                linksList.innerHTML = "";
+                linksList.appendChild(backBtn);
+            } else {
+                linksList.innerHTML = "";
+            }
 
-if (data) {
-    data.sort((a, b) => {
-        const aMatch = a.module_name.match(/\d+/);
-        const bMatch = b.module_name.match(/\d+/);
+            const loadingMsg = document.createElement("p");
+            loadingMsg.style.cssText = "color: #3498db; text-align:center;";
+            loadingMsg.textContent = "⏳ Loading content...";
+            linksList.appendChild(loadingMsg);
 
-        if (aMatch && bMatch) {
-            return parseInt(aMatch[0]) - parseInt(bMatch[0]);
-        }
+            // Build query
+            let query = supabaseClient
+                .from("links")
+                .select("*")
+                .eq("semester", semester)
+                .eq("subject", subject)
+                .eq("category", category)
+                .eq("status", "approved");
 
-        return a.module_name.localeCompare(b.module_name);
-    });
-}
+            if (moduleParam) {
+                query = query.eq("sub_category", moduleParam);
+            }
 
-linksList.innerHTML = "";
+            const { data, error } = await withRetry(() => query);
 
-            linksList.innerHTML = "";
+            loadingMsg.remove();
 
             if (error) {
-                linksList.innerHTML = `<p class="empty-message">⚠️ ${friendlyErrorMessage(error)} <a href="#" id="retry-links">Retry</a></p>`;
+                linksList.insertAdjacentHTML("beforeend", `<p class="empty-message">⚠️ ${friendlyErrorMessage(error)} <a href="#" id="retry-links">Retry</a></p>`);
                 document.getElementById("retry-links").onclick = function (e) {
-                    e.preventDefault();
-                    loadLinks();
+                    e.preventDefault(); loadLinks();
                 };
                 return;
             }
 
             if (!data || data.length === 0) {
-                linksList.innerHTML = `<p class="empty-message">No content available yet.</p>`;
+                linksList.insertAdjacentHTML("beforeend", `<p class="empty-message">No content available yet.</p>`);
                 return;
             }
+
+            // Sort numerically first, then alphabetically
+            data.sort((a, b) => {
+                const aMatch = a.module_name.match(/\d+/);
+                const bMatch = b.module_name.match(/\d+/);
+                if (aMatch && bMatch) return parseInt(aMatch[0]) - parseInt(bMatch[0]);
+                return a.module_name.localeCompare(b.module_name);
+            });
 
             data.forEach(link => {
                 const div = document.createElement("div");
                 div.className = "note-item";
                 const canDelete = isAdmin || (user?.email === link.uploaded_by);
+
                 div.innerHTML = `
                     <a href="${link.drive_link}" target="_blank" style="flex:1; display:block;">📄 ${link.module_name}</a>
-                    ${canDelete && user ? `<button class="delete-btn" onclick="deleteLink('${link.id}')">🗑️</button>` : ""}
+                    <div class="note-actions">
+                        ${isAdmin ? `<button class="rename-btn" onclick="renameLink('${link.id}', this)" title="Rename">✏️</button>` : ""}
+                        ${canDelete && user ? `<button class="delete-btn" onclick="deleteLink('${link.id}')">🗑️</button>` : ""}
+                    </div>
                 `;
                 linksList.appendChild(div);
             });
         }
 
+        // ─── RENAME (admin only) ──────────────────────────────────────────────
+        async function renameLink(id, btn) {
+            const noteItem = btn.closest(".note-item");
+            const anchor = noteItem.querySelector("a");
+            const currentName = anchor.textContent.replace(/^📄\s*/, "").trim();
+
+            const newName = prompt("Enter new file name:", currentName);
+            if (!newName || newName.trim() === "" || newName.trim() === currentName) return;
+
+            btn.disabled = true;
+            btn.textContent = "⏳";
+
+            const { error } = await withRetry(() =>
+                supabaseClient
+                    .from("links")
+                    .update({ module_name: newName.trim() })
+                    .eq("id", id)
+            );
+
+            if (error) {
+                alert("Error renaming: " + friendlyErrorMessage(error));
+                btn.disabled = false;
+                btn.textContent = "✏️";
+                return;
+            }
+
+            anchor.textContent = `📄 ${newName.trim()}`;
+            btn.disabled = false;
+            btn.textContent = "✏️";
+        }
+
         async function addLink(userEmail) {
-            const moduleName = prompt("Link title (e.g. Unit 1 Notes):");
+            const moduleName = prompt("Link title (e.g. Module 1 - COA Notes):");
             if (!moduleName || moduleName.trim() === "") return;
 
             const driveLink = prompt("Paste the Google Drive / link URL:");
             if (!driveLink || driveLink.trim() === "") return;
+
+            // Auto-detect sub_category from title if in notes
+            let subCategory = null;
+            if (category === "notes") {
+                const n = moduleName.toLowerCase();
+                if (/module\s*1/.test(n)) subCategory = "module_1";
+                else if (/module\s*2/.test(n)) subCategory = "module_2";
+                else if (/module\s*3/.test(n)) subCategory = "module_3";
+                else if (/module\s*4/.test(n)) subCategory = "module_4";
+            }
 
             const { error } = await withRetry(() =>
                 supabaseClient
@@ -191,6 +291,7 @@ linksList.innerHTML = "";
                         semester: semester,
                         subject: subject,
                         category: category,
+                        sub_category: subCategory,
                         uploaded_by: userEmail,
                         status: "pending"
                     })
@@ -210,10 +311,7 @@ linksList.innerHTML = "";
             const { error } = await withRetry(() =>
                 supabaseClient.from("links").delete().eq("id", id)
             );
-            if (error) {
-                alert("Error deleting link: " + friendlyErrorMessage(error));
-                return;
-            }
+            if (error) { alert("Error deleting link: " + friendlyErrorMessage(error)); return; }
             loadLinks();
         }
 
@@ -222,10 +320,7 @@ linksList.innerHTML = "";
             const { error } = await withRetry(() =>
                 supabaseClient.from("folders").delete().eq("id", id)
             );
-            if (error) {
-                alert("Error deleting folder: " + friendlyErrorMessage(error));
-                return;
-            }
+            if (error) { alert("Error deleting folder: " + friendlyErrorMessage(error)); return; }
             await withRetry(() =>
                 supabaseClient.from("links").delete().eq("category", id)
             );
